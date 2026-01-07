@@ -1,0 +1,400 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* HURE Care - Medical Teal Theme */
+    --background: 210 20% 98%;
+    --foreground: 210 40% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 40% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 40% 10%;
+
+    /* Medical Teal Primary */
+    --primary: 173 58% 39%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 173 58% 92%;
+    --primary-dark: 173 58% 32%;
+
+    /* Warm Secondary */
+    --secondary: 210 20% 95%;
+    --secondary-foreground: 210 40% 20%;
+
+    /* Muted */
+    --muted: 210 20% 96%;
+    --muted-foreground: 210 15% 45%;
+
+    /* Accent - Coral */
+    --accent: 12 76% 61%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Status Colors */
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 15%;
+    --error: 0 72% 51%;
+    --error-foreground: 0 0% 100%;
+    --info: 206 90% 55%;
+    --info-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 173 58% 39%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar-background: 173 58% 12%;
+    --sidebar-foreground: 173 20% 95%;
+    --sidebar-primary: 173 58% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 173 40% 18%;
+    --sidebar-accent-foreground: 173 20% 95%;
+    --sidebar-border: 173 30% 20%;
+    --sidebar-ring: 173 58% 50%;
+
+    /* Custom HURE Care tokens */
+    --gradient-primary: linear-gradient(135deg, hsl(173 58% 39%) 0%, hsl(173 58% 50%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(173 58% 12%) 0%, hsl(173 58% 25%) 50%, hsl(173 58% 39%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(12 76% 61%) 0%, hsl(24 80% 55%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(210 20% 10% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(210 20% 10% / 0.08), 0 2px 4px -2px hsl(210 20% 10% / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(210 20% 10% / 0.1), 0 4px 6px -4px hsl(210 20% 10% / 0.05);
+    --shadow-xl: 0 20px 25px -5px hsl(210 20% 10% / 0.1), 0 8px 10px -6px hsl(210 20% 10% / 0.05);
+    --shadow-glow: 0 0 40px hsl(173 58% 50% / 0.2);
+    --shadow-card: 0 1px 3px hsl(210 20% 10% / 0.08), 0 4px 16px hsl(210 20% 10% / 0.08);
+  }
+
+  .dark {
+    --background: 210 30% 8%;
+    --foreground: 210 20% 95%;
+
+    --card: 210 30% 12%;
+    --card-foreground: 210 20% 95%;
+
+    --popover: 210 30% 12%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 173 58% 50%;
+    --primary-foreground: 173 58% 8%;
+    --primary-light: 173 40% 20%;
+    --primary-dark: 173 58% 60%;
+
+    --secondary: 210 20% 18%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 210 20% 15%;
+    --muted-foreground: 210 15% 60%;
+
+    --accent: 12 76% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 152 55% 45%;
+    --warning: 38 85% 50%;
+    --error: 0 65% 55%;
+    --info: 206 85% 55%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 20%;
+    --input: 210 20% 20%;
+    --ring: 173 58% 50%;
+
+    --sidebar-background: 210 30% 6%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 173 58% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 25% 12%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 210 20% 15%;
+    --sidebar-ring: 173 58% 50%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(173 58% 45%) 0%, hsl(173 58% 55%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(210 30% 6%) 0%, hsl(173 40% 15%) 50%, hsl(173 58% 30%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(210 30% 14%) 0%, hsl(210 30% 10%) 100%);
+
+    --shadow-card: 0 1px 3px hsl(0 0% 0% / 0.15), 0 4px 12px hsl(0 0% 0% / 0.25);
+    --shadow-glow: 0 0 40px hsl(173 58% 50% / 0.15);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card backdrop-blur-lg border border-border;
+    box-shadow: var(--shadow-card);
+    width: 100%;
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+
+  .glass-card-hover:hover {
+    @apply border-primary/30;
+    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    transform: translateY(-2px);
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-primary);
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .status-scheduled {
+    @apply bg-info/10 text-info border border-info/20;
+  }
+
+  .status-in-session {
+    @apply bg-warning/10 text-warning border border-warning/20;
+  }
+
+  .status-completed {
+    @apply bg-success/10 text-success border border-success/20;
+  }
+
+  .status-cancelled {
+    @apply bg-error/10 text-error border border-error/20;
+  }
+
+  .status-no-show {
+    @apply bg-muted text-muted-foreground border border-border;
+  }
+
+  /* Confirmation badges */
+  .badge-confirmed {
+    @apply bg-success/10 text-success border border-success/30;
+  }
+
+  .badge-not-confirmed {
+    @apply bg-muted text-muted-foreground border border-border;
+  }
+
+  .badge-left-message {
+    @apply bg-warning/10 text-warning border border-warning/30;
+  }
+
+  /* Booking type badges */
+  .badge-same-day {
+    @apply bg-accent/10 text-accent border border-accent/30;
+  }
+
+  .badge-advance {
+    @apply bg-primary/10 text-primary border border-primary/30;
+  }
+
+  /* Note status badges */
+  .badge-draft {
+    @apply bg-warning/10 text-warning border border-warning/30;
+  }
+
+  .badge-signed {
+    @apply bg-success/10 text-success border border-success/30;
+  }
+
+  /* Source type badges */
+  .badge-audio {
+    @apply bg-purple-100 text-purple-700 border border-purple-300;
+  }
+
+  .badge-text {
+    @apply bg-blue-100 text-blue-700 border border-blue-300;
+  }
+
+  /* Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out forwards;
+  }
+
+  .animate-pulse-soft {
+    animation: pulseSoft 2s ease-in-out infinite;
+  }
+
+  .stagger-1 {
+    animation-delay: 0.1s;
+  }
+
+  .stagger-2 {
+    animation-delay: 0.2s;
+  }
+
+  .stagger-3 {
+    animation-delay: 0.3s;
+  }
+
+  .stagger-4 {
+    animation-delay: 0.4s;
+  }
+
+  .stagger-5 {
+    animation-delay: 0.5s;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseSoft {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Recording pulse animation */
+@keyframes recordingPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--error) / 0.7);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px hsl(var(--error) / 0);
+  }
+}
+
+.recording-pulse {
+  animation: recordingPulse 1.5s ease-in-out infinite;
+}
+
+/* Radial gradient utility */
+.bg-gradient-radial {
+  background: radial-gradient(circle, var(--tw-gradient-stops));
+}
+
+/* Dark theme scrollbar for landing page */
+.bg-\[#0a0a0b\]::-webkit-scrollbar-track {
+  background: #1a1a1d;
+}
+
+.bg-\[#0a0a0b\]::-webkit-scrollbar-thumb {
+  background: #333;
+}
+
+.bg-\[#0a0a0b\]::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* Lenis smooth scroll */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
