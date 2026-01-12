@@ -12,7 +12,6 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Activity,
   Heart,
   FileCheck,
   Receipt,
@@ -25,30 +24,37 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { LogoutReminderModal } from '@/components/clinical/LogoutReminderModal';
+import { getUserProfile } from '@/lib/storageService';
 
+// Menu items with role restrictions
+// roles: undefined = visible to all, ['admin'] = only admins, ['provider'] = only providers
+// Note: Clinical Notes, Referral Notes, Intake Forms are now integrated into patient/appointment workflows
+// Insurance Review and Claims are now integrated under Billing module
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Patients', path: '/patients' },
   { icon: Calendar, label: 'Appointments', path: '/appointments' },
-  { icon: FileText, label: 'Clinical Notes', path: '/clinical-notes' },
-  { icon: FileCheck, label: 'Referral Notes', path: '/referral-notes' },
-  { icon: ClipboardList, label: 'Intake Forms', path: '/intake-forms' },
-  { icon: Shield, label: 'Insurance Review', path: '/insurance-submissions' },
-  { icon: CreditCard, label: 'Billing', path: '/billing' },
-  { icon: Receipt, label: 'Claims', path: '/claims' },
-  { icon: BarChart3, label: 'Notes Report', path: '/admin/incomplete-notes' },
-  { icon: UserCog, label: 'User Management', path: '/admin/users', adminOnly: true },
+  // Owner/Admin only items - Billing now contains Insurance Review and Claims
+  { icon: CreditCard, label: 'Billing', path: '/billing', roles: ['admin', 'super_admin', 'billing_staff'] },
+  { icon: BarChart3, label: 'Reports', path: '/admin/incomplete-notes', roles: ['admin', 'super_admin'] },
+  { icon: UserCog, label: 'User Management', path: '/admin/users', roles: ['admin', 'super_admin'] },
+  // Settings visible to all
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [showLogoutReminder, setShowLogoutReminder] = useState(false);
+  const [userRole, setUserRole] = useState<string>('provider');
   const location = useLocation();
   const sidebarRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    loadUserRole();
+  }, []);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -84,8 +90,21 @@ export function Sidebar() {
     return () => ctx.revert();
   }, []);
 
+  const loadUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const profile = await getUserProfile(user.id);
+        if (profile?.role) {
+          setUserRole(profile.role);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load user role:', err);
+    }
+  };
+
   const handleSignOutClick = () => {
-    // Show logout reminder modal to check for incomplete notes
     setShowLogoutReminder(true);
   };
 
@@ -99,6 +118,14 @@ export function Sidebar() {
       });
     }
   };
+
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => {
+    // If no roles specified, item is visible to everyone
+    if (!item.roles) return true;
+    // Check if user's role is in the allowed roles
+    return item.roles.includes(userRole);
+  });
 
   return (
     <div
@@ -126,7 +153,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         <div ref={menuRef} className="space-y-1">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const isActive = location.pathname === item.path ||
               (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 

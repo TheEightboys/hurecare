@@ -87,7 +87,7 @@ export default function PatientsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    
+
     // View/Edit Patient
     const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
     const [isViewOpen, setIsViewOpen] = useState(false);
@@ -191,7 +191,7 @@ export default function PatientsPage() {
             setLoading(false);
         }
     };
-    
+
     const resetForm = () => {
         setFormData({
             first_name: '',
@@ -214,7 +214,7 @@ export default function PatientsPage() {
         });
         setNewAllergy('');
     };
-    
+
     const handleOpenPatient = async (patient: any) => {
         setSelectedPatient(patient);
         setFormData({
@@ -239,7 +239,7 @@ export default function PatientsPage() {
         setIsEditing(false);
         setIsViewOpen(true);
     };
-    
+
     const handleSavePatient = async () => {
         if (!selectedPatient) return;
         setSavingPatient(true);
@@ -273,14 +273,14 @@ export default function PatientsPage() {
             setSavingPatient(false);
         }
     };
-    
+
     const addAllergy = () => {
         if (newAllergy.trim() && !formData.allergies.includes(newAllergy.trim())) {
             setFormData({ ...formData, allergies: [...formData.allergies, newAllergy.trim()] });
             setNewAllergy('');
         }
     };
-    
+
     const removeAllergy = (allergy: string) => {
         setFormData({ ...formData, allergies: formData.allergies.filter(a => a !== allergy) });
     };
@@ -303,26 +303,26 @@ export default function PatientsPage() {
         <MainLayout>
             <div className="space-y-6">
                 {/* Header */}
-                <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-display font-bold">Patients</h1>
-                        <p className="text-muted-foreground">Manage patient records and history</p>
+                        <p className="text-muted-foreground">Search and manage existing patient records</p>
                     </div>
                     <Dialog open={isCreateOpen} onOpenChange={handleOpenChange}>
                         <DialogTrigger asChild>
                             <Button className="gap-2">
                                 <Plus className="w-4 h-4" />
-                                Add Patient
+                                Add Patient Manually
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[500px]">
+                        <DialogContent className="max-w-3xl max-h-[90vh] overscroll-contain">
+                            <DialogHeader>
+                                <DialogTitle>Add Patient Manually</DialogTitle>
+                                <DialogDescription>
+                                    Manually add a patient record. Note: Patients are typically created during appointment scheduling.
+                                </DialogDescription>
+                            </DialogHeader>
                             <form onSubmit={handleCreatePatient}>
-                                <DialogHeader>
-                                    <DialogTitle>Add New Patient</DialogTitle>
-                                    <DialogDescription>
-                                        Enter the patient's basic information to create a new record.
-                                    </DialogDescription>
-                                </DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
@@ -501,7 +501,7 @@ export default function PatientsPage() {
                         </div>
                     )}
                 </div>
-                
+
                 {/* View/Edit Patient Dialog */}
                 <Dialog open={isViewOpen} onOpenChange={(open) => { setIsViewOpen(open); if (!open) setIsEditing(false); }}>
                     <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
@@ -524,15 +524,17 @@ export default function PatientsPage() {
                                 )}
                             </div>
                         </DialogHeader>
-                        
+
                         <Tabs defaultValue="personal" className="mt-4">
-                            <TabsList className="grid w-full grid-cols-4">
+                            <TabsList className="grid w-full grid-cols-6">
                                 <TabsTrigger value="personal">Personal</TabsTrigger>
                                 <TabsTrigger value="medical">Medical</TabsTrigger>
                                 <TabsTrigger value="insurance">Insurance</TabsTrigger>
                                 <TabsTrigger value="emergency">Emergency</TabsTrigger>
+                                <TabsTrigger value="visits">Visit History</TabsTrigger>
+                                <TabsTrigger value="intake">Intake Forms</TabsTrigger>
                             </TabsList>
-                            
+
                             <TabsContent value="personal" className="space-y-4 mt-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
@@ -613,7 +615,7 @@ export default function PatientsPage() {
                                     />
                                 </div>
                             </TabsContent>
-                            
+
                             <TabsContent value="medical" className="space-y-4 mt-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="view_blood_type">Blood Type</Label>
@@ -677,7 +679,7 @@ export default function PatientsPage() {
                                     )}
                                 </div>
                             </TabsContent>
-                            
+
                             <TabsContent value="insurance" className="space-y-4 mt-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="view_insurance_provider">Insurance Provider</Label>
@@ -751,7 +753,7 @@ export default function PatientsPage() {
                                     />
                                 </div>
                             </TabsContent>
-                            
+
                             <TabsContent value="emergency" className="space-y-4 mt-4">
                                 <div className="p-4 bg-muted/50 rounded-lg">
                                     <h4 className="font-medium mb-4 flex items-center gap-2">
@@ -782,8 +784,57 @@ export default function PatientsPage() {
                                     </div>
                                 </div>
                             </TabsContent>
+
+                            {/* Visit History Tab */}
+                            <TabsContent value="visits" className="space-y-4 mt-4">
+                                <div className="p-4 bg-muted/50 rounded-lg">
+                                    <h4 className="font-medium mb-4 flex items-center gap-2">
+                                        <Calendar className="w-4 h-4" />
+                                        Past Visits & Clinical Notes
+                                    </h4>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        View past appointments and associated clinical documentation.
+                                    </p>
+                                    <div className="text-center py-6">
+                                        <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                                        <p className="text-muted-foreground text-sm">No past visits recorded</p>
+                                        <Button variant="outline" size="sm" className="mt-3" onClick={() => {
+                                            setIsViewOpen(false);
+                                            navigate('/appointments');
+                                        }}>
+                                            Schedule Appointment
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            {/* Intake Forms Tab */}
+                            <TabsContent value="intake" className="space-y-4 mt-4">
+                                <div className="p-4 bg-muted/50 rounded-lg">
+                                    <h4 className="font-medium mb-4 flex items-center gap-2">
+                                        <ClipboardList className="w-4 h-4" />
+                                        Intake Forms
+                                    </h4>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Send intake forms to the patient via SMS or email. Forms are parsed and saved to the patient profile.
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-1">
+                                            <ClipboardList className="w-5 h-5" />
+                                            <span className="text-xs">New Patient Intake</span>
+                                        </Button>
+                                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-1">
+                                            <FileText className="w-5 h-5" />
+                                            <span className="text-xs">Update Medical History</span>
+                                        </Button>
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t">
+                                        <p className="text-xs text-muted-foreground">No intake forms sent yet.</p>
+                                    </div>
+                                </div>
+                            </TabsContent>
                         </Tabs>
-                        
+
                         {isEditing && (
                             <DialogFooter className="mt-6">
                                 <Button variant="outline" onClick={() => {

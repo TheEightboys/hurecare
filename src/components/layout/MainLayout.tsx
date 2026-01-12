@@ -76,12 +76,11 @@ export function MainLayout({ children }: MainLayoutProps) {
       '/dashboard': 'Dashboard',
       '/patients': 'Patients',
       '/appointments': 'Appointments',
-      '/clinical-notes': 'Clinical Notes',
       '/intake-forms': 'Intake Forms',
       '/billing': 'Billing & Claims',
       '/settings': 'Settings',
     };
-    
+
     for (const [key, value] of Object.entries(titles)) {
       if (path.startsWith(key)) return value;
     }
@@ -215,11 +214,11 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-foreground/50 z-40 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         >
-          <div 
+          <div
             className="w-64 h-full"
             onClick={(e) => e.stopPropagation()}
           >

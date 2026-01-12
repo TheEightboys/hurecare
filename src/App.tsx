@@ -17,6 +17,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const ClinicalNotesPage = lazy(() => import("./pages/ClinicalNotesPage"));
 const SOAPNoteEditor = lazy(() => import("./pages/SOAPNoteEditor"));
 const AppointmentsPage = lazy(() => import("./pages/AppointmentsPage"));
+const PatientVisitPage = lazy(() => import("./pages/PatientVisitPage"));
 const IntakeFormsPage = lazy(() => import("./pages/IntakeFormsPage"));
 const PatientIntakePublic = lazy(() => import("./pages/PatientIntakePublic"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
@@ -94,42 +95,42 @@ const App = () => (
               <Route path="/intake/:token" element={<PatientIntakePublic />} />
               <Route path="/insurance-submit/:token" element={<InsuranceSubmitPublic />} />
 
-          {/* Protected Routes */}
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/patients" element={<ProtectedRoute><PatientsPage /></ProtectedRoute>} />
-          <Route path="/patients/new" element={<ProtectedRoute><PatientsPage /></ProtectedRoute>} />
+              {/* Protected Routes */}
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/patients" element={<ProtectedRoute><PatientsPage /></ProtectedRoute>} />
+              <Route path="/patients/new" element={<ProtectedRoute><PatientsPage /></ProtectedRoute>} />
 
-          {/* Appointments */}
-          <Route path="/appointments" element={<ProtectedRoute><AppointmentsPage /></ProtectedRoute>} />
+              {/* Appointments */}
+              <Route path="/appointments" element={<ProtectedRoute><AppointmentsPage /></ProtectedRoute>} />
+              <Route path="/appointments/:appointmentId/visit" element={<ProtectedRoute><PatientVisitPage /></ProtectedRoute>} />
 
-          {/* Clinical Notes */}
-          <Route path="/clinical-notes" element={<ProtectedRoute><ClinicalNotesPage /></ProtectedRoute>} />
-          <Route path="/clinical-notes/new" element={<ProtectedRoute><SOAPNoteEditor /></ProtectedRoute>} />
-          <Route path="/clinical-notes/:id" element={<ProtectedRoute><SOAPNoteEditor /></ProtectedRoute>} />
+              {/* Clinical Notes - Only accessible through appointments/patient visit */}
+              <Route path="/clinical-notes/new" element={<ProtectedRoute><SOAPNoteEditor /></ProtectedRoute>} />
+              <Route path="/clinical-notes/:id" element={<ProtectedRoute><SOAPNoteEditor /></ProtectedRoute>} />
 
-          {/* Referral Notes */}
-          <Route path="/referral-notes" element={<ProtectedRoute><ClinicalNotesPage /></ProtectedRoute>} />
-          <Route path="/referral-notes/new" element={<ProtectedRoute><ReferralNoteEditor /></ProtectedRoute>} />
-          <Route path="/referral-notes/:id" element={<ProtectedRoute><ReferralNoteEditor /></ProtectedRoute>} />
+              {/* Referral Notes */}
+              <Route path="/referral-notes" element={<ProtectedRoute><ClinicalNotesPage /></ProtectedRoute>} />
+              <Route path="/referral-notes/new" element={<ProtectedRoute><ReferralNoteEditor /></ProtectedRoute>} />
+              <Route path="/referral-notes/:id" element={<ProtectedRoute><ReferralNoteEditor /></ProtectedRoute>} />
 
-          {/* Intake Forms */}
-          <Route path="/intake-forms" element={<ProtectedRoute><IntakeFormsPage /></ProtectedRoute>} />
+              {/* Intake Forms */}
+              <Route path="/intake-forms" element={<ProtectedRoute><IntakeFormsPage /></ProtectedRoute>} />
 
-          {/* Billing & Claims */}
-          <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
-          <Route path="/claims" element={<ProtectedRoute><ClaimsPage /></ProtectedRoute>} />
-          <Route path="/insurance-submissions" element={<ProtectedRoute><InsuranceSubmissionsPage /></ProtectedRoute>} />
+              {/* Billing & Claims */}
+              <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
+              <Route path="/claims" element={<ProtectedRoute><ClaimsPage /></ProtectedRoute>} />
+              <Route path="/insurance-submissions" element={<ProtectedRoute><InsuranceSubmissionsPage /></ProtectedRoute>} />
 
-          {/* Admin Reports */}
-          <Route path="/admin/incomplete-notes" element={<ProtectedRoute><AdminNotesReportPage /></ProtectedRoute>} />
-          <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
+              {/* Admin Reports */}
+              <Route path="/admin/incomplete-notes" element={<ProtectedRoute><AdminNotesReportPage /></ProtectedRoute>} />
+              <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
 
-          {/* Settings */}
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              {/* Settings */}
+              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
 
-          {/* 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </Suspense>
         </BrowserRouter>
       </TooltipProvider>

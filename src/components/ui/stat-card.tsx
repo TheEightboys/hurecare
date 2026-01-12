@@ -1,12 +1,14 @@
-import { ReactNode, useRef, useEffect } from 'react';
+import { ReactNode, useRef, useEffect, useState } from 'react';
 import { gsap } from 'gsap';
 import { cn } from '@/lib/utils';
-import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
+import { LucideIcon, TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface StatCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
+  emptyStateMessage?: string;
   icon: LucideIcon;
   trend?: {
     value: number;
@@ -14,6 +16,7 @@ interface StatCardProps {
   };
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'error';
   delay?: number;
+  hideable?: boolean;
 }
 
 const variantStyles = {
@@ -39,26 +42,32 @@ const variantStyles = {
   },
 };
 
-export function StatCard({ 
-  title, 
-  value, 
-  subtitle, 
-  icon: Icon, 
+export function StatCard({
+  title,
+  value,
+  subtitle,
+  emptyStateMessage,
+  icon: Icon,
   trend,
   variant = 'default',
-  delay = 0 
+  delay = 0,
+  hideable = false
 }: StatCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef<HTMLSpanElement>(null);
+  const [isHidden, setIsHidden] = useState(false);
   const styles = variantStyles[variant];
+
+  // Check if value is effectively zero/empty
+  const isEmpty = value === 0 || value === '0' || value === 'KES 0';
 
   useEffect(() => {
     if (!cardRef.current) return;
-    
+
     const ctx = gsap.context(() => {
       // Set initial state
       gsap.set(cardRef.current, { opacity: 1, y: 0 });
-      
+
       gsap.from(cardRef.current, {
         opacity: 0,
         y: 30,
@@ -74,7 +83,7 @@ export function StatCard({
           duration: 1.5,
           delay: delay + 0.3,
           ease: 'power2.out',
-          onUpdate: function() {
+          onUpdate: function () {
             if (valueRef.current) {
               valueRef.current.textContent = Math.round(this.targets()[0].val).toLocaleString();
             }
@@ -95,20 +104,34 @@ export function StatCard({
         <div className={cn('p-3 rounded-xl', styles.iconBg)}>
           <Icon className={cn('w-6 h-6', styles.iconColor)} />
         </div>
-        
-        {trend && (
-          <div className={cn(
-            'flex items-center gap-1 text-sm font-medium',
-            trend.isPositive ? 'text-success' : 'text-error'
-          )}>
-            {trend.isPositive ? (
-              <TrendingUp className="w-4 h-4" />
-            ) : (
-              <TrendingDown className="w-4 h-4" />
-            )}
-            <span>{Math.abs(trend.value)}%</span>
-          </div>
-        )}
+
+        <div className="flex items-center gap-2">
+          {trend && (
+            <div className={cn(
+              'flex items-center gap-1 text-sm font-medium',
+              trend.isPositive ? 'text-success' : 'text-error'
+            )}>
+              {trend.isPositive ? (
+                <TrendingUp className="w-4 h-4" />
+              ) : (
+                <TrendingDown className="w-4 h-4" />
+              )}
+              <span>{Math.abs(trend.value)}%</span>
+            </div>
+          )}
+
+          {hideable && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={() => setIsHidden(!isHidden)}
+              title={isHidden ? 'Show amount' : 'Hide amount'}
+            >
+              {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="mt-4">
@@ -116,10 +139,12 @@ export function StatCard({
           ref={valueRef}
           className="text-3xl font-display font-bold text-foreground"
         >
-          {typeof value === 'number' ? '0' : value}
+          {hideable && isHidden ? '••••••' : (typeof value === 'number' ? '0' : value)}
         </span>
         <h3 className="text-sm font-medium text-muted-foreground mt-1">{title}</h3>
-        {subtitle && (
+        {isEmpty && emptyStateMessage ? (
+          <p className="text-xs text-muted-foreground/70 mt-0.5 italic">{emptyStateMessage}</p>
+        ) : subtitle && (
           <p className="text-xs text-muted-foreground/70 mt-0.5">{subtitle}</p>
         )}
       </div>

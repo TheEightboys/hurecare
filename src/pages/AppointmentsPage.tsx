@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { AppointmentCard } from '@/components/ui/appointment-card';
+import { PatientSearch } from '@/components/appointments/PatientSearch';
+import { IntakeFormButton } from '@/components/appointments/IntakeFormButton';
 import {
     Select,
     SelectContent,
@@ -35,7 +37,8 @@ import {
     Grid,
     Filter,
     Clock,
-    Users
+    Users,
+    CheckCircle2
 } from 'lucide-react';
 import { format, addDays, isToday, isTomorrow, startOfDay } from 'date-fns';
 
@@ -43,7 +46,7 @@ export default function AppointmentsPage() {
     const navigate = useNavigate();
     const { toast } = useToast();
     const { getAppointments, createAppointment, updateAppointmentStatus, updateConfirmation, loading } = useAppointments();
-    const { getPatients } = usePatients();
+    const { getPatients, createPatient } = usePatients();
 
     const [appointments, setAppointments] = useState<any[]>([]);
     const [patients, setPatients] = useState<any[]>([]);
@@ -54,12 +57,13 @@ export default function AppointmentsPage() {
     const [showNewDialog, setShowNewDialog] = useState(false);
 
     // New appointment form
-    const [newPatientId, setNewPatientId] = useState('');
+    const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
     const [newDate, setNewDate] = useState<Date>(new Date());
     const [newTime, setNewTime] = useState('09:00');
     const [newDuration, setNewDuration] = useState('30');
     const [newReason, setNewReason] = useState('');
     const [creating, setCreating] = useState(false);
+    const [newlyCreatedAppointment, setNewlyCreatedAppointment] = useState<any | null>(null);
 
     const headerRef = useRef<HTMLDivElement>(null);
 
@@ -126,15 +130,15 @@ export default function AppointmentsPage() {
     };
 
     const handleCreateAppointment = async () => {
-        if (!newPatientId || !newReason) {
-            toast({ variant: 'destructive', title: 'Missing fields', description: 'Please fill all required fields' });
+        if (!selectedPatient || !newReason) {
+            toast({ variant: 'destructive', title: 'Missing fields', description: 'Please select a patient and enter reason for visit' });
             return;
         }
 
         setCreating(true);
         try {
-            await createAppointment({
-                patient_id: newPatientId,
+            const appointment = await createAppointment({
+                patient_id: selectedPatient.id,
                 appointment_date: format(newDate, 'yyyy-MM-dd'),
                 appointment_time: newTime,
                 duration_minutes: parseInt(newDuration),
@@ -142,8 +146,10 @@ export default function AppointmentsPage() {
                 provider_id: '',
             });
 
-            toast({ title: 'Appointment created' });
-            setShowNewDialog(false);
+            setNewlyCreatedAppointment(appointment);
+            toast({ title: 'Appointment created successfully' });
+
+            // Don't close dialog yet - show intake form option
             resetForm();
             loadAppointments();
         } catch (err) {
@@ -153,12 +159,27 @@ export default function AppointmentsPage() {
         }
     };
 
+    const handleCreatePatient = async (data: { first_name: string, last_name: string, phone: string, date_of_birth?: string }) => {
+        try {
+            const patient = await createPatient(data);
+            setSelectedPatient(patient);
+            toast({ title: 'Patient created successfully' });
+            // Reload patients list
+            const patientsData = await getPatients();
+            setPatients(patientsData);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not create patient' });
+            throw error;
+        }
+    };
+
     const resetForm = () => {
-        setNewPatientId('');
+        setSelectedPatient(null);
         setNewDate(new Date());
         setNewTime('09:00');
         setNewDuration('30');
         setNewReason('');
+        setNewlyCreatedAppointment(null);
     };
 
     const filteredAppointments = appointments.filter(apt => {
@@ -198,95 +219,136 @@ export default function AppointmentsPage() {
                                 New Appointment
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-md">
+                        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
                                 <DialogTitle>Schedule Appointment</DialogTitle>
-                                <DialogDescription>Create a new appointment for a patient.</DialogDescription>
+                                <DialogDescription>
+                                    {newlyCreatedAppointment
+                                        ? 'Appointment created successfully! Send intake forms to the patient.'
+                                        : 'Search for an existing patient or create a new one.'}
+                                </DialogDescription>
                             </DialogHeader>
 
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Patient *</Label>
-                                    <Select value={newPatientId} onValueChange={setNewPatientId}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select patient" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {patients.map(p => (
-                                                <SelectItem key={p.id} value={p.id}>
-                                                    {p.first_name} {p.last_name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Date *</Label>
-                                        <Input
-                                            type="date"
-                                            value={format(newDate, 'yyyy-MM-dd')}
-                                            onChange={(e) => setNewDate(new Date(e.target.value))}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Time *</Label>
-                                        <Input
-                                            type="time"
-                                            value={newTime}
-                                            onChange={(e) => setNewTime(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Duration (minutes)</Label>
-                                    <Select value={newDuration} onValueChange={setNewDuration}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="15">15 minutes</SelectItem>
-                                            <SelectItem value="30">30 minutes</SelectItem>
-                                            <SelectItem value="45">45 minutes</SelectItem>
-                                            <SelectItem value="60">60 minutes</SelectItem>
-                                            <SelectItem value="90">90 minutes</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Reason for Visit *</Label>
-                                    <Textarea
-                                        value={newReason}
-                                        onChange={(e) => setNewReason(e.target.value)}
-                                        placeholder="Brief description of the visit reason"
-                                        rows={3}
+                            {!newlyCreatedAppointment ? (
+                                <div className="space-y-4 py-4">
+                                    {/* Patient Search/Create */}
+                                    <PatientSearch
+                                        onSelectPatient={setSelectedPatient}
+                                        onCreatePatient={handleCreatePatient}
+                                        selectedPatient={selectedPatient}
                                     />
-                                </div>
 
-                                {/* Booking Type Preview */}
-                                <div className="flex items-center gap-2 text-sm">
-                                    <span className="text-muted-foreground">Booking type:</span>
-                                    <Badge className={
-                                        startOfDay(newDate).getTime() === startOfDay(new Date()).getTime()
-                                            ? 'badge-same-day'
-                                            : 'badge-advance'
-                                    }>
-                                        {startOfDay(newDate).getTime() === startOfDay(new Date()).getTime() ? 'SD' : 'ADV'}
-                                    </Badge>
-                                    <span className="text-muted-foreground text-xs">
-                                        ({startOfDay(newDate).getTime() === startOfDay(new Date()).getTime() ? 'Same Day' : 'Advance'} booking)
-                                    </span>
+                                    {selectedPatient && (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label>Date *</Label>
+                                                    <Input
+                                                        type="date"
+                                                        value={format(newDate, 'yyyy-MM-dd')}
+                                                        onChange={(e) => setNewDate(new Date(e.target.value))}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Time *</Label>
+                                                    <Input
+                                                        type="time"
+                                                        value={newTime}
+                                                        onChange={(e) => setNewTime(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Duration (minutes)</Label>
+                                                <Select value={newDuration} onValueChange={setNewDuration}>
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="15">15 minutes</SelectItem>
+                                                        <SelectItem value="30">30 minutes</SelectItem>
+                                                        <SelectItem value="45">45 minutes</SelectItem>
+                                                        <SelectItem value="60">60 minutes</SelectItem>
+                                                        <SelectItem value="90">90 minutes</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Reason for Visit *</Label>
+                                                <Textarea
+                                                    value={newReason}
+                                                    onChange={(e) => setNewReason(e.target.value)}
+                                                    placeholder="Brief description of the visit reason"
+                                                    rows={3}
+                                                />
+                                            </div>
+
+                                            {/* Booking Type Preview */}
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="text-muted-foreground">Booking type:</span>
+                                                <Badge className={
+                                                    startOfDay(newDate).getTime() === startOfDay(new Date()).getTime()
+                                                        ? 'badge-same-day'
+                                                        : 'badge-advance'
+                                                }>
+                                                    {startOfDay(newDate).getTime() === startOfDay(new Date()).getTime() ? 'SD' : 'ADV'}
+                                                </Badge>
+                                                <span className="text-muted-foreground text-xs">
+                                                    ({startOfDay(newDate).getTime() === startOfDay(new Date()).getTime() ? 'Same Day' : 'Advance'} booking)
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
-                            </div>
+                            ) : (
+                                /* Success State - Show Intake Form Option */
+                                <div className="py-6 space-y-4">
+                                    <div className="flex flex-col items-center text-center space-y-3">
+                                        <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center">
+                                            <CheckCircle2 className="w-8 h-8 text-success" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-lg">Appointment Booked!</h3>
+                                            <p className="text-sm text-muted-foreground">
+                                                {selectedPatient?.first_name} {selectedPatient?.last_name} • {format(newDate, 'MMM d, yyyy')} at {newTime}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t pt-4">
+                                        <p className="text-sm text-muted-foreground mb-3">
+                                            Send intake forms to collect patient demographics and insurance information
+                                        </p>
+                                        <IntakeFormButton
+                                            patientId={selectedPatient?.id}
+                                            appointmentId={newlyCreatedAppointment.id}
+                                            patientPhone={selectedPatient?.phone}
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setShowNewDialog(false)}>Cancel</Button>
-                                <Button onClick={handleCreateAppointment} disabled={creating}>
-                                    {creating ? 'Creating...' : 'Create Appointment'}
-                                </Button>
+                                {!newlyCreatedAppointment ? (
+                                    <>
+                                        <Button variant="outline" onClick={() => setShowNewDialog(false)}>Cancel</Button>
+                                        <Button
+                                            onClick={handleCreateAppointment}
+                                            disabled={creating || !selectedPatient || !newReason}
+                                        >
+                                            {creating ? 'Creating...' : 'Create Appointment'}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button onClick={() => {
+                                        setShowNewDialog(false);
+                                        resetForm();
+                                    }} className="w-full">
+                                        Done
+                                    </Button>
+                                )}
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>

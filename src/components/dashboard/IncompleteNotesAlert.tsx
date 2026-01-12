@@ -53,7 +53,7 @@ export function IncompleteNotesAlert({ notes }: IncompleteNotesAlertProps) {
                 </div>
 
                 <Button variant="outline" size="sm" asChild className="flex-shrink-0">
-                    <Link to="/clinical-notes?status=draft">Review All</Link>
+                    <Link to="/admin/incomplete-notes">Review All</Link>
                 </Button>
             </div>
         </div>

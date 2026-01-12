@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { Clock, User, MoreVertical, Check, Phone, X } from 'lucide-react';
+import { Clock, User, MoreVertical, Check, Phone, X, ClipboardCheck, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +34,7 @@ interface AppointmentCardProps {
   delay?: number;
   onStatusChange?: (id: string, status: string) => void;
   onConfirmationChange?: (id: string, indicator: string) => void;
+  showVisitButton?: boolean;
 }
 
 const statusLabels = {
@@ -76,6 +78,7 @@ export function AppointmentCard({
   delay = 0,
   onStatusChange,
   onConfirmationChange,
+  showVisitButton = true,
 }: AppointmentCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -197,38 +200,69 @@ export function AppointmentCard({
           </TooltipProvider>
         </div>
 
-        {/* Actions Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => onConfirmationChange?.(id, 'C')}>
-              <Check className="w-4 h-4 mr-2 text-success" />
-              Mark Confirmed
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onConfirmationChange?.(id, 'LM')}>
-              <Phone className="w-4 h-4 mr-2 text-warning" />
-              Left Message
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onStatusChange?.(id, 'IN_SESSION')}>
-              Start Session
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onStatusChange?.(id, 'COMPLETED')}>
-              Mark Completed
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onStatusChange?.(id, 'CANCELLED')}
-              className="text-error focus:text-error"
-            >
-              <X className="w-4 h-4 mr-2" />
-              Cancel
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Check In / View Visit Button */}
+          {showVisitButton && (
+            <Link to={`/appointments/${id}/visit`}>
+              <Button
+                size="sm"
+                variant={status === 'SCHEDULED' ? 'default' : 'outline'}
+                className="gap-1"
+              >
+                {status === 'SCHEDULED' ? (
+                  <>
+                    <ClipboardCheck className="w-4 h-4" />
+                    Check In
+                  </>
+                ) : status === 'IN_SESSION' ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    View Visit
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    View
+                  </>
+                )}
+              </Button>
+            </Link>
+          )}
+
+          {/* Actions Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => onConfirmationChange?.(id, 'C')}>
+                <Check className="w-4 h-4 mr-2 text-success" />
+                Mark Confirmed
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onConfirmationChange?.(id, 'LM')}>
+                <Phone className="w-4 h-4 mr-2 text-warning" />
+                Left Message
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onStatusChange?.(id, 'IN_SESSION')}>
+                Start Session
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStatusChange?.(id, 'COMPLETED')}>
+                Mark Completed
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onStatusChange?.(id, 'CANCELLED')}
+                className="text-error focus:text-error"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </div>
   );
