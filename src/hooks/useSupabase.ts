@@ -7,39 +7,18 @@ export function usePatients() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getPatients = useCallback(async (includeDeleted = false) => {
+  const getPatients = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // First try with deleted_at filter
-      let query = supabase
+      const { data, error } = await supabase
         .from('patients')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Try to filter by deleted_at if not including deleted
-      if (!includeDeleted) {
-        query = query.is('deleted_at', null);
-      }
-
-      let { data, error } = await query;
-      
-      // If error occurs (possibly due to missing deleted_at column), try without filter
       if (error) {
-        console.warn('Query with deleted_at filter failed, trying without filter:', error.message);
-        const fallbackQuery = supabase
-          .from('patients')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        const fallbackResult = await fallbackQuery;
-        data = fallbackResult.data;
-        error = fallbackResult.error;
-        
-        if (error) {
-          console.error('Error fetching patients:', error);
-          throw error;
-        }
+        console.error('Error fetching patients:', error);
+        throw error;
       }
       
       console.log('Fetched patients:', data?.length || 0);

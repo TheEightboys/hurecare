@@ -28,14 +28,13 @@ interface PatientsQueryOptions {
   page?: number;
   pageSize?: number;
   search?: string;
-  includeDeleted?: boolean;
 }
 
 export function usePatientsQuery(options: PatientsQueryOptions = {}) {
-  const { page = 1, pageSize = 20, search = '', includeDeleted = false } = options;
+  const { page = 1, pageSize = 20, search = '' } = options;
   
   return useQuery({
-    queryKey: [...queryKeys.patients, { page, pageSize, search, includeDeleted }],
+    queryKey: [...queryKeys.patients, { page, pageSize, search }],
     queryFn: async () => {
       let query = supabase
         .from('patients')
@@ -43,35 +42,11 @@ export function usePatientsQuery(options: PatientsQueryOptions = {}) {
         .order('created_at', { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
       
-      // Only filter by deleted_at if column exists (graceful handling)
-      if (!includeDeleted) {
-        query = query.is('deleted_at', null);
-      }
-      
       if (search) {
         query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
       }
       
-      let { data, error, count } = await query;
-      
-      // If error (possibly missing deleted_at column), retry without that filter
-      if (error && !includeDeleted) {
-        console.warn('Query with deleted_at failed, retrying without filter:', error.message);
-        let fallbackQuery = supabase
-          .from('patients')
-          .select('*', { count: 'exact' })
-          .order('created_at', { ascending: false })
-          .range((page - 1) * pageSize, page * pageSize - 1);
-        
-        if (search) {
-          fallbackQuery = fallbackQuery.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
-        }
-        
-        const fallbackResult = await fallbackQuery;
-        data = fallbackResult.data;
-        error = fallbackResult.error;
-        count = fallbackResult.count;
-      }
+      const { data, error, count } = await query;
       
       if (error) throw error;
       
