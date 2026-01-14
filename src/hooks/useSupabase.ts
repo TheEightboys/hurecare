@@ -405,7 +405,7 @@ export function useBilling() {
     try {
       let query = supabase
         .from('billing')
-        .select(`*, patients(first_name, last_name, insurance_provider, insurance_policy_number)`)
+        .select(`*, patients(first_name, last_name, insurance_provider, insurance_policy_number, insurance_group_number, insurance_holder_name, insurance_valid_until)`)
         .order('created_at', { ascending: false });
 
       if (patientId) query = query.eq('patient_id', patientId);
@@ -418,11 +418,25 @@ export function useBilling() {
     }
   }, []);
 
-  const createBill = useCallback(async (bill: TablesInsert<'billing'>) => {
+  const getBill = useCallback(async (id: string) => {
+    const { data, error } = await supabase
+      .from('billing')
+      .select(`*, patients(*)`)
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return data;
+  }, []);
+
+  const createBill = useCallback(async (bill: TablesInsert<'billing'> & { appointment_id?: string; payments?: any[] }) => {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('billing')
-      .insert({ ...bill, provider_id: user?.id || '' })
+      .insert({ 
+        ...bill, 
+        provider_id: user?.id || '',
+        payments: bill.payments || [],
+      })
       .select()
       .single();
     if (error) throw error;
@@ -430,7 +444,7 @@ export function useBilling() {
     return data;
   }, []);
 
-  const updateBill = useCallback(async (id: string, updates: TablesUpdate<'billing'>) => {
+  const updateBill = useCallback(async (id: string, updates: TablesUpdate<'billing'> & { payments?: any[] }) => {
     const { data, error } = await supabase
       .from('billing')
       .update(updates)
@@ -438,10 +452,52 @@ export function useBilling() {
       .select()
       .single();
     if (error) throw error;
+    await createAuditLog('BILL_UPDATED', 'billing', id, { updatedFields: Object.keys(updates) });
     return data;
   }, []);
 
-  return { getBills, createBill, updateBill, loading };
+  const recordPayment = useCallback(async (billId: string, payment: {
+    payer: 'patient' | 'insurance';
+    method: string;
+    amount: number;
+    reference?: string;
+    notes?: string;
+  }) => {
+    // Get current bill
+    const { data: bill, error: fetchError } = await supabase
+      .from('billing')
+      .select('payments, balance, total')
+      .eq('id', billId)
+      .single();
+    if (fetchError) throw fetchError;
+
+    const currentPayments = (bill.payments as any[]) || [];
+    const newPayment = {
+      id: crypto.randomUUID(),
+      ...payment,
+      date: new Date().toISOString(),
+    };
+    const updatedPayments = [...currentPayments, newPayment];
+    const totalPaid = updatedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const newBalance = (bill.total || 0) - totalPaid;
+
+    const { data, error } = await supabase
+      .from('billing')
+      .update({
+        payments: updatedPayments,
+        balance: newBalance,
+        status: newBalance <= 0 ? 'PAID' : 'PARTIAL',
+        payer_type: payment.payer === 'insurance' ? 'Insurance' : 'Patient',
+      })
+      .eq('id', billId)
+      .select()
+      .single();
+    if (error) throw error;
+    await createAuditLog('PAYMENT_RECORDED', 'billing', billId, { amount: payment.amount, method: payment.method });
+    return data;
+  }, []);
+
+  return { getBills, getBill, createBill, updateBill, recordPayment, loading };
 }
 
 // ============ INSURANCE CLAIMS ============
@@ -1068,4 +1124,288 @@ export function useDashboardStats() {
   }, []);
 
   return { getStats, loading };
+}
+
+// ============ AUDIO RECORDINGS MANAGEMENT ============
+export function useAudioRecordings() {
+  const [loading, setLoading] = useState(false);
+
+  // Create temp audio recording entry
+  const createTempAudioEntry = useCallback(async (clinicalNoteId: string, durationSeconds: number, fileSizeBytes?: number) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // 24h TTL
+
+    const { data, error } = await supabase
+      .from('audio_recordings_temp')
+      .insert({
+        clinical_note_id: clinicalNoteId,
+        provider_id: user.id,
+        duration_seconds: durationSeconds,
+        file_size_bytes: fileSizeBytes,
+        status: 'ACTIVE',
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    await createAuditLog('AUDIO_TEMP_CREATED', 'audio_recordings_temp', data.id, { clinicalNoteId, durationSeconds });
+    return data;
+  }, []);
+
+  // Mark audio as transcribed (ready for deletion after save)
+  const markAudioTranscribed = useCallback(async (id: string) => {
+    const { data, error } = await supabase
+      .from('audio_recordings_temp')
+      .update({ 
+        status: 'TRANSCRIBED',
+        transcript_verified: true,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    await createAuditLog('AUDIO_TRANSCRIBED', 'audio_recordings_temp', id, {});
+    return data;
+  }, []);
+
+  // Delete audio after note is saved/signed
+  const deleteAudioAfterSave = useCallback(async (clinicalNoteId: string, reason: 'note_saved' | 'note_signed' | 'ttl_expired' | 'manual') => {
+    const { error } = await supabase
+      .from('audio_recordings_temp')
+      .update({
+        status: 'DELETED',
+        deleted_at: new Date().toISOString(),
+        deletion_reason: reason,
+      })
+      .eq('clinical_note_id', clinicalNoteId);
+    if (error) throw error;
+    await createAuditLog('AUDIO_DELETED', 'audio_recordings_temp', clinicalNoteId, { reason });
+  }, []);
+
+  // Cleanup expired audio recordings (called by scheduled job or manually)
+  const cleanupExpiredAudio = useCallback(async () => {
+    const { error } = await supabase
+      .from('audio_recordings_temp')
+      .update({
+        status: 'EXPIRED',
+        deleted_at: new Date().toISOString(),
+        deletion_reason: 'TTL_EXPIRED',
+      })
+      .lt('expires_at', new Date().toISOString())
+      .eq('status', 'ACTIVE');
+    if (error) console.error('Failed to cleanup expired audio:', error);
+  }, []);
+
+  return { createTempAudioEntry, markAudioTranscribed, deleteAudioAfterSave, cleanupExpiredAudio, loading };
+}
+
+// ============ PROVIDER REMINDERS ============
+export function useProviderReminders() {
+  const [loading, setLoading] = useState(false);
+
+  // Log when a reminder is shown
+  const logReminderShown = useCallback(async (
+    reminderType: 'INCOMPLETE_NOTES' | 'SESSION_TIMEOUT' | 'LOGOUT' | 'PENDING_SIGN',
+    metadata: Record<string, any> = {}
+  ) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('provider_reminders')
+      .insert({
+        provider_id: user.id,
+        reminder_type: reminderType,
+        shown_at: new Date().toISOString(),
+        metadata,
+      })
+      .select()
+      .single();
+    if (error) console.error('Failed to log reminder shown:', error);
+    return data;
+  }, []);
+
+  // Log when a reminder is dismissed
+  const logReminderDismissed = useCallback(async (reminderId: string) => {
+    const { error } = await supabase
+      .from('provider_reminders')
+      .update({ dismissed_at: new Date().toISOString() })
+      .eq('id', reminderId);
+    if (error) console.error('Failed to log reminder dismissed:', error);
+    await createAuditLog('REMINDER_DISMISSED', 'provider_reminders', reminderId, {});
+  }, []);
+
+  // Log when action is taken from reminder
+  const logReminderAction = useCallback(async (reminderId: string, action: string) => {
+    const { error } = await supabase
+      .from('provider_reminders')
+      .update({ 
+        action_taken: action,
+        action_taken_at: new Date().toISOString(),
+      })
+      .eq('id', reminderId);
+    if (error) console.error('Failed to log reminder action:', error);
+    await createAuditLog('REMINDER_ACTION_TAKEN', 'provider_reminders', reminderId, { action });
+  }, []);
+
+  return { logReminderShown, logReminderDismissed, logReminderAction, loading };
+}
+
+// ============ AI SUGGESTIONS LOG ============
+export function useAISuggestionsLog() {
+  const [loading, setLoading] = useState(false);
+
+  // Log an AI suggestion (SOAP, ICD-10, etc.)
+  const logAISuggestion = useCallback(async (
+    clinicalNoteId: string | null,
+    suggestionType: 'SOAP' | 'ICD10' | 'CLARITY' | 'PARSE',
+    inputText: string,
+    outputData: Record<string, any>,
+    modelUsed?: string
+  ) => {
+    const { data, error } = await supabase
+      .from('ai_suggestions_log')
+      .insert({
+        clinical_note_id: clinicalNoteId,
+        suggestion_type: suggestionType,
+        input_text: inputText.substring(0, 5000), // Limit input size
+        output_data: outputData,
+        model_used: modelUsed,
+      })
+      .select()
+      .single();
+    if (error) console.error('Failed to log AI suggestion:', error);
+    return data;
+  }, []);
+
+  // Mark suggestion as accepted
+  const markSuggestionAccepted = useCallback(async (suggestionId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from('ai_suggestions_log')
+      .update({
+        accepted: true,
+        accepted_at: new Date().toISOString(),
+        accepted_by: user?.id,
+      })
+      .eq('id', suggestionId);
+    if (error) console.error('Failed to mark suggestion accepted:', error);
+  }, []);
+
+  return { logAISuggestion, markSuggestionAccepted, loading };
+}
+
+// ============ INCOMPLETE NOTES TRACKING ============
+export function useIncompleteNotesTracking() {
+  const [loading, setLoading] = useState(false);
+
+  // Get incomplete notes for provider (same-day only for providers)
+  const getProviderIncompleteNotes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get today's completed/in-session appointments without signed notes
+      const { data: appointments } = await supabase
+        .from('appointments')
+        .select(`
+          id,
+          appointment_date,
+          appointment_time,
+          patient_id,
+          patients (first_name, last_name),
+          clinical_notes (id, status)
+        `)
+        .eq('provider_id', user.id)
+        .in('status', ['COMPLETED', 'IN_SESSION'])
+        .gte('appointment_date', today.toISOString().split('T')[0]);
+
+      if (!appointments) return [];
+
+      return appointments
+        .filter(apt => {
+          // No clinical note or draft clinical note
+          const notes = apt.clinical_notes as any[] || [];
+          return notes.length === 0 || notes.every(n => n.status === 'DRAFT');
+        })
+        .map(apt => ({
+          id: apt.id,
+          patient_name: `${(apt.patients as any)?.first_name || ''} ${(apt.patients as any)?.last_name || ''}`.trim(),
+          appointment_date: apt.appointment_date,
+          status: (apt.clinical_notes as any[])?.length ? 'DRAFT' : 'NO_NOTE',
+          note_id: (apt.clinical_notes as any[])?.[0]?.id,
+        }));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Get incomplete notes for admin (24h+ only, no content visible)
+  const getAdminIncompleteNotes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      oneDayAgo.setHours(0, 0, 0, 0);
+
+      const { data: appointments } = await supabase
+        .from('appointments')
+        .select(`
+          id,
+          appointment_date,
+          appointment_time,
+          provider_id,
+          patient_id,
+          patients (first_name, last_name),
+          profiles:provider_id (full_name),
+          clinical_notes (id, status)
+        `)
+        .in('status', ['COMPLETED', 'IN_SESSION'])
+        .lt('appointment_date', oneDayAgo.toISOString().split('T')[0]);
+
+      if (!appointments) return [];
+
+      const incompleteNotes: any[] = [];
+
+      for (const apt of appointments) {
+        const notes = apt.clinical_notes as any[] || [];
+        const hasNoNote = notes.length === 0;
+        const hasDraftOnly = notes.length > 0 && notes.every(n => n.status === 'DRAFT');
+
+        if (hasNoNote || hasDraftOnly) {
+          const aptDateTime = new Date(`${apt.appointment_date}T${apt.appointment_time || '00:00:00'}`);
+          const hoursOld = Math.floor((Date.now() - aptDateTime.getTime()) / (1000 * 60 * 60));
+
+          let agingBucket: '24-48h' | '48-72h' | '72h+';
+          if (hoursOld < 48) agingBucket = '24-48h';
+          else if (hoursOld < 72) agingBucket = '48-72h';
+          else agingBucket = '72h+';
+
+          incompleteNotes.push({
+            id: apt.id,
+            provider_name: (apt.profiles as any)?.full_name || 'Unknown',
+            provider_id: apt.provider_id,
+            patient_name: `${(apt.patients as any)?.first_name || ''} ${(apt.patients as any)?.last_name || ''}`.trim(),
+            appointment_date: apt.appointment_date,
+            status: hasNoNote ? 'NO_NOTE' : 'DRAFT',
+            hours_old: hoursOld,
+            aging_bucket: agingBucket,
+          });
+        }
+      }
+
+      return incompleteNotes;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { getProviderIncompleteNotes, getAdminIncompleteNotes, loading };
 }

@@ -16,6 +16,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useAppointments, usePatients, useClinicalNotes } from '@/hooks/useSupabase';
+import { VisitBillingTab } from '@/components/billing/VisitBillingTab';
 import {
     ArrowLeft,
     User,
@@ -34,7 +35,9 @@ import {
     Download,
     Printer,
     ClipboardList,
-    AlertCircle
+    AlertCircle,
+    Building2,
+    Shield
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -239,6 +242,77 @@ export default function PatientVisitPage() {
                                     <p className="text-sm text-muted-foreground">Address</p>
                                     <p className="font-medium">{patient.address || 'Not provided'}</p>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Insurance Information - Master Record */}
+                        <div className="glass-card rounded-xl p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Building2 className="w-5 h-5 text-primary" />
+                                    <h3 className="text-lg font-semibold">Insurance Information</h3>
+                                    <Badge variant="outline" className="text-xs">Master Record</Badge>
+                                </div>
+                                {patient.insurance_provider && (
+                                    <Badge className={
+                                        patient.insurance_valid_until && new Date(patient.insurance_valid_until) > new Date()
+                                            ? 'bg-success/10 text-success border-success/30'
+                                            : 'bg-amber-100 text-amber-700 border-amber-300'
+                                    }>
+                                        {patient.insurance_valid_until && new Date(patient.insurance_valid_until) > new Date() ? 'Active' : 'Verify Coverage'}
+                                    </Badge>
+                                )}
+                            </div>
+                            
+                            {patient.insurance_provider ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Insurance Provider</p>
+                                        <p className="font-medium">{patient.insurance_provider}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Member / Policy Number</p>
+                                        <p className="font-medium font-mono">{patient.insurance_policy_number || 'Not provided'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Group Number</p>
+                                        <p className="font-medium">{patient.insurance_group_number || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Valid Until</p>
+                                        <p className="font-medium">
+                                            {patient.insurance_valid_until 
+                                                ? format(new Date(patient.insurance_valid_until), 'MMM d, yyyy') 
+                                                : 'Not specified'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Policy Holder Name</p>
+                                        <p className="font-medium">{patient.insurance_holder_name || 'Self'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Relationship to Holder</p>
+                                        <p className="font-medium">{patient.insurance_holder_relationship || 'Self'}</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-6">
+                                    <Shield className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                                    <p className="text-muted-foreground">No insurance information on file</p>
+                                    <p className="text-sm text-muted-foreground mt-1">Update patient record to add insurance details</p>
+                                    <Link to={`/patients?edit=${patient.id}`}>
+                                        <Button variant="outline" className="mt-3">
+                                            Update Patient Demographics
+                                        </Button>
+                                    </Link>
+                                </div>
+                            )}
+                            
+                            <div className="mt-4 p-3 bg-info/5 border border-info/20 rounded-lg">
+                                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4" />
+                                    Insurance details here are used by Billing for claim submission. Update here to change all future claims.
+                                </p>
                             </div>
                         </div>
                     </TabsContent>
@@ -495,39 +569,28 @@ export default function PatientVisitPage() {
                         </div>
                     </TabsContent>
 
-                    {/* Billing Tab */}
+                    {/* Billing Tab - Full Workflow */}
                     <TabsContent value="billing" className="space-y-4">
                         <div className="glass-card rounded-xl p-6">
-                            <h3 className="text-lg font-semibold mb-4">Billing & Charges</h3>
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                    <AlertCircle className="w-5 h-5 text-amber-600" />
-                                    <p className="text-sm text-amber-700">
-                                        Complete clinical documentation before adding charges. Insurance claims can only be submitted after bills are generated.
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                                        <CreditCard className="w-5 h-5 text-primary" />
+                                        Billing & Charges
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Create charges, record payments, and submit insurance claims
                                     </p>
                                 </div>
-
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2">
-                                        <Plus className="w-5 h-5" />
-                                        <span className="text-xs">Add Consultation</span>
-                                    </Button>
-                                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2">
-                                        <Plus className="w-5 h-5" />
-                                        <span className="text-xs">Add Investigation</span>
-                                    </Button>
-                                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2">
-                                        <Plus className="w-5 h-5" />
-                                        <span className="text-xs">Add Procedure</span>
-                                    </Button>
-                                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2">
-                                        <Plus className="w-5 h-5" />
-                                        <span className="text-xs">Add Pharmacy</span>
-                                    </Button>
-                                </div>
-
-                                <p className="text-muted-foreground text-center py-6">No charges added yet. Add charges above to generate a bill.</p>
                             </div>
+
+                            <VisitBillingTab
+                                patientId={patient?.id}
+                                appointmentId={appointmentId || ''}
+                                patient={patient}
+                                clinicalNotes={clinicalNotes}
+                                onRefresh={loadVisitData}
+                            />
                         </div>
                     </TabsContent>
 

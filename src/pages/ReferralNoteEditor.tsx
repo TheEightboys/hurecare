@@ -256,9 +256,15 @@ export default function ReferralNoteEditor() {
     const performSave = async (sign: boolean) => {
         setSaving(true);
         try {
+            // Get source note info for tracking
+            const sourceNote = clinicalNotes.find(n => n.id === selectedNoteId);
+            
             const data = {
                 patient_id: selectedPatientId,
                 source_clinical_note_id: selectedNoteId || null,
+                source_visit_date: sourceNote ? new Date(sourceNote.created_at).toISOString().split('T')[0] : null,
+                source_note_type: sourceNote?.note_type || null,
+                source_note_status: sourceNote?.status || null,
                 receiving_facility: receivingFacility,
                 urgency,
                 reason_for_referral: reasonForReferral,

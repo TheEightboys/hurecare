@@ -18,6 +18,8 @@ import {
   BarChart3,
   Shield,
   UserCog,
+  Send,
+  FilePlus2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,14 +30,19 @@ import { getUserProfile } from '@/lib/storageService';
 
 // Menu items with role restrictions
 // roles: undefined = visible to all, ['admin'] = only admins, ['provider'] = only providers
-// Note: Clinical Notes, Referral Notes, Intake Forms are now integrated into patient/appointment workflows
-// Insurance Review and Claims are now integrated under Billing module
+// Note: Clinical Notes now accessible via sidebar for quick access
+// Insurance claims are handled INSIDE Billing module (not separate nav item)
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Patients', path: '/patients' },
   { icon: Calendar, label: 'Appointments', path: '/appointments' },
-  // Owner/Admin only items - Billing now contains Insurance Review and Claims
-  { icon: CreditCard, label: 'Billing', path: '/billing', roles: ['admin', 'super_admin', 'billing_staff'] },
+  // Clinical Documentation
+  { icon: FileText, label: 'Clinical Notes', path: '/clinical-notes', roles: ['provider', 'admin', 'super_admin'] },
+  { icon: Send, label: 'Referral Notes', path: '/referral-notes', roles: ['provider', 'admin', 'super_admin'] },
+  { icon: FilePlus2, label: 'Intake Forms', path: '/intake-forms', roles: ['provider', 'admin', 'super_admin', 'staff'] },
+  // Billing (includes Claims inside - not separate nav)
+  { icon: CreditCard, label: 'Billing', path: '/billing', roles: ['admin', 'super_admin', 'billing_staff', 'billing', 'provider'] },
+  // Admin Reports
   { icon: BarChart3, label: 'Reports', path: '/admin/incomplete-notes', roles: ['admin', 'super_admin'] },
   { icon: UserCog, label: 'User Management', path: '/admin/users', roles: ['admin', 'super_admin'] },
   // Settings visible to all

@@ -23,6 +23,7 @@ const PatientIntakePublic = lazy(() => import("./pages/PatientIntakePublic"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
 const ClaimsPage = lazy(() => import("./pages/ClaimsPage"));
 const ReferralNoteEditor = lazy(() => import("./pages/ReferralNoteEditor"));
+const ReferralNotesPage = lazy(() => import("./pages/ReferralNotesPage"));
 const AdminNotesReportPage = lazy(() => import("./pages/AdminNotesReportPage"));
 const PatientsPage = lazy(() => import("./pages/PatientsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
@@ -104,12 +105,13 @@ const App = () => (
               <Route path="/appointments" element={<ProtectedRoute><AppointmentsPage /></ProtectedRoute>} />
               <Route path="/appointments/:appointmentId/visit" element={<ProtectedRoute><PatientVisitPage /></ProtectedRoute>} />
 
-              {/* Clinical Notes - Only accessible through appointments/patient visit */}
+              {/* Clinical Notes - AI-Assisted SOAP Notes */}
+              <Route path="/clinical-notes" element={<ProtectedRoute><ClinicalNotesPage /></ProtectedRoute>} />
               <Route path="/clinical-notes/new" element={<ProtectedRoute><SOAPNoteEditor /></ProtectedRoute>} />
               <Route path="/clinical-notes/:id" element={<ProtectedRoute><SOAPNoteEditor /></ProtectedRoute>} />
 
               {/* Referral Notes */}
-              <Route path="/referral-notes" element={<ProtectedRoute><ClinicalNotesPage /></ProtectedRoute>} />
+              <Route path="/referral-notes" element={<ProtectedRoute><ReferralNotesPage /></ProtectedRoute>} />
               <Route path="/referral-notes/new" element={<ProtectedRoute><ReferralNoteEditor /></ProtectedRoute>} />
               <Route path="/referral-notes/:id" element={<ProtectedRoute><ReferralNoteEditor /></ProtectedRoute>} />
 
