@@ -167,7 +167,6 @@ export default function BillingPage() {
                 total,
                 balance: total,
                 status: 'PENDING',
-                provider_id: '',
             });
 
             toast({ title: 'Bill created' });

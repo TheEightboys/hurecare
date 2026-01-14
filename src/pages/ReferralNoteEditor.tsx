@@ -274,7 +274,6 @@ export default function ReferralNoteEditor() {
                 medications,
                 allergies,
                 requested_action: requestedAction,
-                provider_id: '', // Overwritten by hook
             };
 
             if (isNew) {

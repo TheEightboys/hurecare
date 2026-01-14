@@ -152,8 +152,15 @@ export default function PatientsPage() {
     }, [patients]);
 
     const loadPatients = async () => {
-        const data = await getPatients();
-        setPatients(data || []);
+        try {
+            console.log('Loading patients...');
+            const data = await getPatients();
+            console.log('Patients loaded:', data);
+            setPatients(data || []);
+        } catch (err) {
+            console.error('Error loading patients:', err);
+            toast.error('Failed to load patients');
+        }
     };
 
     const handleCreatePatient = async (e: React.FormEvent) => {
@@ -177,15 +184,20 @@ export default function PatientsPage() {
                 insurance_holder_relationship: formData.insurance_holder_relationship || null,
                 insurance_valid_until: formData.insurance_valid_until || null,
             };
-            await createPatient(cleanedData);
+            console.log('Creating patient with data:', cleanedData);
+            const newPatient = await createPatient(cleanedData);
+            console.log('Patient created:', newPatient);
             toast.success('Patient created successfully');
             setIsCreateOpen(false);
             resetForm();
-            loadPatients();
+            // Small delay before reloading to ensure database has processed
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await loadPatients();
             if (location.pathname === '/patients/new') {
                 navigate('/patients');
             }
         } catch (error: any) {
+            console.error('Error creating patient:', error);
             toast.error(error.message || 'Failed to create patient');
         } finally {
             setLoading(false);

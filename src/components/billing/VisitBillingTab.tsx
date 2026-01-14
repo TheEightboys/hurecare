@@ -249,7 +249,6 @@ export function VisitBillingTab({ patientId, appointmentId, patient, clinicalNot
                     total: updatedServices.reduce((sum, s) => sum + (s.qty * s.price), 0) * 1.16,
                     balance: updatedServices.reduce((sum, s) => sum + (s.qty * s.price), 0) * 1.16,
                     status: 'PENDING',
-                    provider_id: '',
                 });
                 setVisitBill(newBill);
             }

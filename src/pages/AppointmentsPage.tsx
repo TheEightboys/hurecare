@@ -143,7 +143,6 @@ export default function AppointmentsPage() {
                 appointment_time: newTime,
                 duration_minutes: parseInt(newDuration),
                 reason_for_visit: newReason,
-                provider_id: '',
             });
 
             setNewlyCreatedAppointment(appointment);

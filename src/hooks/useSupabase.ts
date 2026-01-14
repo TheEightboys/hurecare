@@ -11,17 +11,24 @@ export function usePatients() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
+      // Check auth status first
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Auth session:', session ? 'Active' : 'None', session?.user?.email);
+      
+      console.log('Fetching patients from Supabase...');
+      const { data, error, status } = await supabase
         .from('patients')
         .select('*')
         .order('created_at', { ascending: false });
+
+      console.log('Supabase response - Status:', status, 'Error:', error, 'Data count:', data?.length);
 
       if (error) {
         console.error('Error fetching patients:', error);
         throw error;
       }
       
-      console.log('Fetched patients:', data?.length || 0);
+      console.log('Patients data:', data);
       return data || [];
     } catch (err: any) {
       console.error('Error in getPatients:', err);
@@ -44,12 +51,10 @@ export function usePatients() {
 
   const createPatient = useCallback(async (patient: TablesInsert<'patients'>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('Creating patient with user:', user?.id);
-      
+      // Don't set created_by to avoid foreign key issues if profile doesn't exist
       const { data, error } = await supabase
         .from('patients')
-        .insert({ ...patient, created_by: user?.id })
+        .insert(patient)
         .select()
         .single();
       
@@ -122,26 +127,43 @@ export function useAppointments() {
   }, [getAppointments]);
 
   const createAppointment = useCallback(async (appointment: Omit<TablesInsert<'appointments'>, 'booking_type'>) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const appointmentDate = new Date(appointment.appointment_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+      
+      const appointmentDate = new Date(appointment.appointment_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    const bookingType = appointmentDate.toDateString() === today.toDateString() ? 'SAME_DAY' : 'ADVANCE';
+      const bookingType = appointmentDate.toDateString() === today.toDateString() ? 'SAME_DAY' : 'ADVANCE';
 
-    const { data, error } = await supabase
-      .from('appointments')
-      .insert({
-        ...appointment,
-        booking_type: bookingType,
-        provider_id: appointment.provider_id || user?.id || '',
-      })
-      .select()
-      .single();
-    if (error) throw error;
+      console.log('Creating appointment:', { ...appointment, bookingType, provider_id: user.id });
 
-    await createAuditLog('APPOINTMENT_CREATED', 'appointments', data.id, { bookingType });
-    return data;
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert({
+          ...appointment,
+          booking_type: bookingType,
+          provider_id: user.id, // Always use the logged-in user's ID
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating appointment:', error);
+        throw error;
+      }
+
+      console.log('Appointment created:', data);
+      await createAuditLog('APPOINTMENT_CREATED', 'appointments', data.id, { bookingType });
+      return data;
+    } catch (err: any) {
+      console.error('Exception in createAppointment:', err);
+      throw err;
+    }
   }, []);
 
   const updateAppointmentStatus = useCallback(async (id: string, status: string) => {
@@ -216,11 +238,13 @@ export function useClinicalNotes() {
     return data;
   }, []);
 
-  const createNote = useCallback(async (note: TablesInsert<'clinical_notes'>) => {
+  const createNote = useCallback(async (note: Omit<TablesInsert<'clinical_notes'>, 'provider_id'>) => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) throw new Error('User not authenticated');
+    
     const { data, error } = await supabase
       .from('clinical_notes')
-      .insert({ ...note, provider_id: user?.id || '' })
+      .insert({ ...note, provider_id: user.id })
       .select()
       .single();
     if (error) throw error;
@@ -365,11 +389,13 @@ export function useReferralNotes() {
     return data;
   }, []);
 
-  const createReferralNote = useCallback(async (note: TablesInsert<'referral_notes'>) => {
+  const createReferralNote = useCallback(async (note: Omit<TablesInsert<'referral_notes'>, 'provider_id'>) => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) throw new Error('User not authenticated');
+    
     const { data, error } = await supabase
       .from('referral_notes')
-      .insert({ ...note, provider_id: user?.id || '' })
+      .insert({ ...note, provider_id: user.id })
       .select()
       .single();
     if (error) throw error;
@@ -441,13 +467,15 @@ export function useBilling() {
     return data;
   }, []);
 
-  const createBill = useCallback(async (bill: TablesInsert<'billing'> & { appointment_id?: string; payments?: any[] }) => {
+  const createBill = useCallback(async (bill: Omit<TablesInsert<'billing'>, 'provider_id'> & { appointment_id?: string; payments?: any[] }) => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) throw new Error('User not authenticated');
+    
     const { data, error } = await supabase
       .from('billing')
       .insert({ 
         ...bill, 
-        provider_id: user?.id || '',
+        provider_id: user.id,
         payments: bill.payments || [],
       })
       .select()
