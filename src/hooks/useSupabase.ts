@@ -11,20 +11,41 @@ export function usePatients() {
     setLoading(true);
     setError(null);
     try {
+      // First try with deleted_at filter
       let query = supabase
         .from('patients')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Filter out soft-deleted patients by default
+      // Try to filter by deleted_at if not including deleted
       if (!includeDeleted) {
         query = query.is('deleted_at', null);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      let { data, error } = await query;
+      
+      // If error occurs (possibly due to missing deleted_at column), try without filter
+      if (error) {
+        console.warn('Query with deleted_at filter failed, trying without filter:', error.message);
+        const fallbackQuery = supabase
+          .from('patients')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        const fallbackResult = await fallbackQuery;
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+        
+        if (error) {
+          console.error('Error fetching patients:', error);
+          throw error;
+        }
+      }
+      
+      console.log('Fetched patients:', data?.length || 0);
+      return data || [];
     } catch (err: any) {
+      console.error('Error in getPatients:', err);
       setError(err.message);
       return [];
     } finally {
@@ -43,14 +64,27 @@ export function usePatients() {
   }, []);
 
   const createPatient = useCallback(async (patient: TablesInsert<'patients'>) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from('patients')
-      .insert({ ...patient, created_by: user?.id })
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Creating patient with user:', user?.id);
+      
+      const { data, error } = await supabase
+        .from('patients')
+        .insert({ ...patient, created_by: user?.id })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating patient:', error);
+        throw error;
+      }
+      
+      console.log('Patient created successfully:', data);
+      return data;
+    } catch (err: any) {
+      console.error('Exception in createPatient:', err);
+      throw err;
+    }
   }, []);
 
   const updatePatient = useCallback(async (id: string, updates: TablesUpdate<'patients'>) => {

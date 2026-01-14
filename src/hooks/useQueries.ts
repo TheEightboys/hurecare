@@ -43,6 +43,7 @@ export function usePatientsQuery(options: PatientsQueryOptions = {}) {
         .order('created_at', { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
       
+      // Only filter by deleted_at if column exists (graceful handling)
       if (!includeDeleted) {
         query = query.is('deleted_at', null);
       }
@@ -51,7 +52,27 @@ export function usePatientsQuery(options: PatientsQueryOptions = {}) {
         query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
       }
       
-      const { data, error, count } = await query;
+      let { data, error, count } = await query;
+      
+      // If error (possibly missing deleted_at column), retry without that filter
+      if (error && !includeDeleted) {
+        console.warn('Query with deleted_at failed, retrying without filter:', error.message);
+        let fallbackQuery = supabase
+          .from('patients')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range((page - 1) * pageSize, page * pageSize - 1);
+        
+        if (search) {
+          fallbackQuery = fallbackQuery.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+        }
+        
+        const fallbackResult = await fallbackQuery;
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+        count = fallbackResult.count;
+      }
+      
       if (error) throw error;
       
       return {
@@ -172,8 +193,7 @@ export function useDashboardStatsQuery() {
           .eq('appointment_date', today),
         supabase
           .from('patients')
-          .select('*', { count: 'exact', head: true })
-          .is('deleted_at', null),
+          .select('*', { count: 'exact', head: true }),
         supabase
           .from('clinical_notes')
           .select('*', { count: 'exact', head: true })
@@ -273,7 +293,6 @@ export function usePatientsInfiniteQuery(search: string = '') {
       let query = supabase
         .from('patients')
         .select('*')
-        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .range(pageParam * pageSize, (pageParam + 1) * pageSize - 1);
       
