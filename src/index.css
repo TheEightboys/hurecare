@@ -169,6 +169,12 @@
     transform: translateY(-2px);
   }
 
+  /* Ensure patient cards are always visible */
+  .patient-card {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
   .gradient-text {
     @apply bg-clip-text text-transparent;
     background-image: var(--gradient-primary);

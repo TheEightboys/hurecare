@@ -14,7 +14,7 @@ export function usePatients() {
       // Check auth status first
       const { data: { session } } = await supabase.auth.getSession();
       console.log('Auth session:', session ? 'Active' : 'None', session?.user?.email);
-      
+
       console.log('Fetching patients from Supabase...');
       const { data, error, status } = await supabase
         .from('patients')
@@ -27,7 +27,7 @@ export function usePatients() {
         console.error('Error fetching patients:', error);
         throw error;
       }
-      
+
       console.log('Patients data:', data);
       return data || [];
     } catch (err: any) {
@@ -57,12 +57,12 @@ export function usePatients() {
         .insert(patient)
         .select()
         .single();
-      
+
       if (error) {
         console.error('Error creating patient:', error);
         throw error;
       }
-      
+
       console.log('Patient created successfully:', data);
       return data;
     } catch (err: any) {
@@ -129,29 +129,38 @@ export function useAppointments() {
   const createAppointment = useCallback(async (appointment: Omit<TablesInsert<'appointments'>, 'booking_type'>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user?.id) {
         throw new Error('User not authenticated');
       }
-      
+
       const appointmentDate = new Date(appointment.appointment_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       const bookingType = appointmentDate.toDateString() === today.toDateString() ? 'SAME_DAY' : 'ADVANCE';
 
-      console.log('Creating appointment:', { ...appointment, bookingType, provider_id: user.id });
+      // Check if user has a profile before setting provider_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      const appointmentData = {
+        ...appointment,
+        booking_type: bookingType,
+        ...(profile?.id && { provider_id: profile.id }), // Only set if profile exists
+      };
+
+      console.log('Creating appointment:', appointmentData);
 
       const { data, error } = await supabase
         .from('appointments')
-        .insert({
-          ...appointment,
-          booking_type: bookingType,
-          provider_id: user.id, // Always use the logged-in user's ID
-        })
+        .insert(appointmentData)
         .select()
         .single();
-      
+
       if (error) {
         console.error('Error creating appointment:', error);
         throw error;
@@ -165,6 +174,7 @@ export function useAppointments() {
       throw err;
     }
   }, []);
+
 
   const updateAppointmentStatus = useCallback(async (id: string, status: string) => {
     const { data, error } = await supabase
@@ -241,7 +251,7 @@ export function useClinicalNotes() {
   const createNote = useCallback(async (note: Omit<TablesInsert<'clinical_notes'>, 'provider_id'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.id) throw new Error('User not authenticated');
-    
+
     const { data, error } = await supabase
       .from('clinical_notes')
       .insert({ ...note, provider_id: user.id })
@@ -392,7 +402,7 @@ export function useReferralNotes() {
   const createReferralNote = useCallback(async (note: Omit<TablesInsert<'referral_notes'>, 'provider_id'>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.id) throw new Error('User not authenticated');
-    
+
     const { data, error } = await supabase
       .from('referral_notes')
       .insert({ ...note, provider_id: user.id })
@@ -470,11 +480,11 @@ export function useBilling() {
   const createBill = useCallback(async (bill: Omit<TablesInsert<'billing'>, 'provider_id'> & { appointment_id?: string; payments?: any[] }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.id) throw new Error('User not authenticated');
-    
+
     const { data, error } = await supabase
       .from('billing')
-      .insert({ 
-        ...bill, 
+      .insert({
+        ...bill,
         provider_id: user.id,
         payments: bill.payments || [],
       })
@@ -552,7 +562,7 @@ export function useInsuranceClaims() {
         .from('insurance_claims')
         .select(`*, billing(*), patients(first_name, last_name)`)
         .order('created_at', { ascending: false });
-      
+
       if (statusFilter && statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
@@ -654,6 +664,10 @@ export function useInsuranceClaims() {
       .insert({
         billing_id: billingId,
         patient_id: billing.patient_id,
+        insurance_provider: billing.patients?.insurance_provider || 'Unknown',
+        policy_number: billing.patients?.insurance_policy_number,
+        group_number: billing.patients?.insurance_group_number,
+        subscriber_name: billing.patients?.insurance_holder_name,
         insurance_snapshot: insuranceSnapshot,
         patient_snapshot: patientSnapshot,
         provider_snapshot: providerSnapshot,
@@ -662,6 +676,7 @@ export function useInsuranceClaims() {
         clinical_notes_snapshot: clinicalNotesSnapshot,
         diagnosis_codes: clinicalNote?.icd10_codes || [],
         total_amount: billing.total || 0,
+        billed_amount: billing.total || 0,
         status: 'DRAFT',
         attachments: [],
       })
@@ -669,14 +684,15 @@ export function useInsuranceClaims() {
       .single();
     if (error) throw error;
 
+
     // Link claim to billing
     await supabase
       .from('billing')
       .update({ insurance_claim_id: data.id })
       .eq('id', billingId);
 
-    await createAuditLog('CLAIM_CREATED', 'insurance_claims', data.id, { 
-      billingId, 
+    await createAuditLog('CLAIM_CREATED', 'insurance_claims', data.id, {
+      billingId,
       clinicalNoteId,
       hasInsuranceSnapshot: !!insuranceSnapshot.provider,
       hasClinicalNote: !!clinicalNote,
@@ -718,11 +734,11 @@ export function useInsuranceClaims() {
   }, []);
 
   const updateClaimStatus = useCallback(async (
-    id: string, 
-    status: string, 
-    additionalData?: { 
-      claimReferenceNumber?: string; 
-      paidAmount?: number; 
+    id: string,
+    status: string,
+    additionalData?: {
+      claimReferenceNumber?: string;
+      paidAmount?: number;
       rejectionReason?: string;
       submittedMethod?: 'MANUAL' | 'PORTAL' | 'API';
     }
@@ -758,9 +774,9 @@ export function useInsuranceClaims() {
       .select()
       .single();
     if (error) throw error;
-    await createAuditLog('CLAIM_STATUS_CHANGED', 'insurance_claims', id, { 
+    await createAuditLog('CLAIM_STATUS_CHANGED', 'insurance_claims', id, {
       newStatus: status,
-      ...additionalData 
+      ...additionalData
     });
     return data;
   }, []);
@@ -996,7 +1012,7 @@ export function useInsuranceSubmissions() {
       .select()
       .single();
     if (error) throw error;
-    
+
     await createAuditLog('INSURANCE_SUBMISSION_LINK_CREATED', 'insurance_submissions', data.id, { patientId });
     return data;
   }, []);
@@ -1029,23 +1045,23 @@ export function useInsuranceSubmissions() {
   const submitInsuranceData = useCallback(async (id: string, submittedData: Record<string, any>) => {
     const { data, error } = await supabase
       .from('insurance_submissions')
-      .update({ 
-        submitted_data: submittedData, 
+      .update({
+        submitted_data: submittedData,
         submitted_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()
       .single();
     if (error) throw error;
-    await createAuditLog('INSURANCE_SUBMISSION_COMPLETED', 'insurance_submissions', id, { 
-      provider: submittedData.insuranceProvider 
+    await createAuditLog('INSURANCE_SUBMISSION_COMPLETED', 'insurance_submissions', id, {
+      provider: submittedData.insuranceProvider
     });
     return data;
   }, []);
 
   const reviewSubmission = useCallback(async (
-    id: string, 
-    action: 'accept' | 'reject', 
+    id: string,
+    action: 'accept' | 'reject',
     rejectionReason?: string
   ) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -1107,14 +1123,14 @@ export function useInsuranceSubmissions() {
     return data;
   }, []);
 
-  return { 
-    getSubmissions, 
-    getSubmission, 
-    createSubmission, 
-    verifyAndGetSubmission, 
-    submitInsuranceData, 
-    reviewSubmission, 
-    loading 
+  return {
+    getSubmissions,
+    getSubmission,
+    createSubmission,
+    verifyAndGetSubmission,
+    submitInsuranceData,
+    reviewSubmission,
+    loading
   };
 }
 
@@ -1200,7 +1216,7 @@ export function useAudioRecordings() {
   const markAudioTranscribed = useCallback(async (id: string) => {
     const { data, error } = await supabase
       .from('audio_recordings_temp')
-      .update({ 
+      .update({
         status: 'TRANSCRIBED',
         transcript_verified: true,
       })
@@ -1283,7 +1299,7 @@ export function useProviderReminders() {
   const logReminderAction = useCallback(async (reminderId: string, action: string) => {
     const { error } = await supabase
       .from('provider_reminders')
-      .update({ 
+      .update({
         action_taken: action,
         action_taken_at: new Date().toISOString(),
       })

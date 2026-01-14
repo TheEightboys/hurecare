@@ -87,6 +87,7 @@ export default function PatientsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
 
     // View/Edit Patient
     const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
@@ -128,38 +129,41 @@ export default function PatientsPage() {
     }, [location.pathname]);
 
     useEffect(() => {
-        // GSAP animations
-        if (patients.length > 0) {
-            const ctx = gsap.context(() => {
-                gsap.from(headerRef.current, {
-                    opacity: 0,
-                    y: -20,
-                    duration: 0.6,
-                    ease: 'power3.out',
-                });
-
-                gsap.from('.patient-card', {
-                    opacity: 0,
-                    y: 30,
-                    duration: 0.5,
-                    stagger: 0.08,
-                    delay: 0.2,
-                    ease: 'power3.out',
-                });
-            });
-            return () => ctx.revert();
+        // GSAP animations for header only
+        if (headerRef.current) {
+            gsap.fromTo(headerRef.current, 
+                { opacity: 0, y: -20 },
+                { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }
+            );
         }
-    }, [patients]);
+    }, []);
+
+    // Separate effect for patient card animations
+    useEffect(() => {
+        if (patients.length > 0 && !initialLoading) {
+            // Use gsap.to to ensure cards are visible
+            gsap.fromTo('.patient-card', 
+                { opacity: 0, y: 20 },
+                { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, ease: 'power2.out' }
+            );
+        }
+    }, [patients, initialLoading]);
 
     const loadPatients = async () => {
         try {
             console.log('Loading patients...');
             const data = await getPatients();
             console.log('Patients loaded:', data);
+            console.log('Patients array length:', data?.length);
+            if (data && data.length > 0) {
+                console.log('First patient:', data[0]);
+            }
             setPatients(data || []);
+            setInitialLoading(false);
         } catch (err) {
             console.error('Error loading patients:', err);
             toast.error('Failed to load patients');
+            setInitialLoading(false);
         }
     };
 
@@ -304,12 +308,18 @@ export default function PatientsPage() {
         }
     };
 
-    const filteredPatients = patients.filter(patient =>
-        patient.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.phone?.includes(searchTerm)
-    );
+    const filteredPatients = patients.filter(patient => {
+        if (!searchTerm.trim()) return true; // Show all if no search term
+        const search = searchTerm.toLowerCase();
+        return (
+            patient.first_name?.toLowerCase().includes(search) ||
+            patient.last_name?.toLowerCase().includes(search) ||
+            patient.email?.toLowerCase().includes(search) ||
+            patient.phone?.includes(searchTerm)
+        );
+    });
+
+    console.log('Render state - patients:', patients.length, 'filtered:', filteredPatients.length, 'loading:', loadingPatients, 'initialLoading:', initialLoading, 'searchTerm:', searchTerm);
 
     return (
         <MainLayout>
@@ -431,7 +441,7 @@ export default function PatientsPage() {
 
                 {/* Patients List */}
                 <div className="space-y-4">
-                    {loadingPatients ? (
+                    {initialLoading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                         </div>

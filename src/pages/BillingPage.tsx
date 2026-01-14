@@ -84,7 +84,7 @@ export default function BillingPage() {
         { description: '', code: '', qty: 1, price: 0 }
     ]);
     const [creating, setCreating] = useState(false);
-    
+
     // Claim preparation dialog
     const [showClaimDialog, setShowClaimDialog] = useState(false);
     const [claimBillId, setClaimBillId] = useState<string | null>(null);
@@ -114,15 +114,35 @@ export default function BillingPage() {
     }, [bills, claims, activeTab]);
 
     const loadData = async () => {
-        const [billsData, patientsData, claimsData] = await Promise.all([
-            getBills(),
-            getPatients(),
-            getClaims(),
-        ]);
-        setBills(billsData || []);
-        setPatients(patientsData || []);
-        setClaims(claimsData || []);
+        // Load patients first - always needed for the dropdown
+        try {
+            const patientsData = await getPatients();
+            console.log('Patients loaded:', patientsData?.length || 0);
+            setPatients(patientsData || []);
+        } catch (err) {
+            console.error('Error loading patients:', err);
+            setPatients([]);
+        }
+
+        // Load bills - may fail if billing table doesn't exist
+        try {
+            const billsData = await getBills();
+            setBills(billsData || []);
+        } catch (err) {
+            console.error('Error loading bills:', err);
+            setBills([]);
+        }
+
+        // Load claims
+        try {
+            const claimsData = await getClaims();
+            setClaims(claimsData || []);
+        } catch (err) {
+            console.error('Error loading claims:', err);
+            setClaims([]);
+        }
     };
+
 
     const selectedPatient = patients.find(p => p.id === selectedPatientId);
 
@@ -191,7 +211,7 @@ export default function BillingPage() {
         setClaimPatientId(bill.patient_id);
         setSelectedNoteId('');
         setShowClaimDialog(true);
-        
+
         // Load patient's signed clinical notes
         setLoadingNotes(true);
         try {
@@ -207,14 +227,14 @@ export default function BillingPage() {
 
     const handleCreateClaim = async () => {
         if (!claimBillId) return;
-        
+
         setCreatingClaim(true);
         try {
             await createClaim(claimBillId, selectedNoteId || undefined);
-            toast({ 
-                title: 'Claim draft created', 
-                description: selectedNoteId 
-                    ? 'Clinical note attached. View in Claims tab to complete and download.' 
+            toast({
+                title: 'Claim draft created',
+                description: selectedNoteId
+                    ? 'Clinical note attached. View in Claims tab to complete and download.'
                     : 'View in Claims tab to complete and download. Consider attaching a clinical note for ICD-10 codes.'
             });
             setShowClaimDialog(false);
@@ -544,95 +564,95 @@ export default function BillingPage() {
                             </Select>
                         </div>
 
-                {/* Bills Table */}
-                <div className="glass-card rounded-xl overflow-hidden">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Patient</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Payer</TableHead>
-                                <TableHead>Total</TableHead>
-                                <TableHead>Balance</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-12">
-                                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                                    </TableCell>
-                                </TableRow>
-                            ) : filteredBills.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-12">
-                                        <CreditCard className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                                        <p className="text-muted-foreground">No invoices found</p>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredBills.map((bill) => (
-                                    <TableRow key={bill.id} className="bill-row">
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                                    <User className="w-4 h-4 text-primary" />
-                                                </div>
-                                                <span className="font-medium">{bill.patients?.first_name} {bill.patients?.last_name}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {format(new Date(bill.created_at), 'MMM d, yyyy')}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">
-                                                {bill.payer_type === 'Insurance' ? (
-                                                    <><Building2 className="w-3 h-3 mr-1" />Insurance</>
-                                                ) : (
-                                                    <><User className="w-3 h-3 mr-1" />Patient</>
-                                                )}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="font-semibold">
-                                            KES {(bill.total || 0).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell>
-                                            KES {(bill.balance || 0).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell>
-                                            {getStatusBadge(bill.status)}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {bill.payer_type === 'Insurance' && !bill.insurance_claim_id && (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handlePrepareClaimClick(bill)}
-                                                    >
-                                                        <FileText className="w-4 h-4 mr-1" />
-                                                        Prepare Claim
-                                                    </Button>
-                                                )}
-                                                {bill.insurance_claim_id && (
-                                                    <Badge variant="outline" className="text-success">
-                                                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                        Claim Created
-                                                    </Badge>
-                                                )}
-                                                <Button variant="ghost" size="icon">
-                                                    <Download className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                        {/* Bills Table */}
+                        <div className="glass-card rounded-xl overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Patient</TableHead>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Payer</TableHead>
+                                        <TableHead>Total</TableHead>
+                                        <TableHead>Balance</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {loading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="text-center py-12">
+                                                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredBills.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="text-center py-12">
+                                                <CreditCard className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                                                <p className="text-muted-foreground">No invoices found</p>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredBills.map((bill) => (
+                                            <TableRow key={bill.id} className="bill-row">
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                                            <User className="w-4 h-4 text-primary" />
+                                                        </div>
+                                                        <span className="font-medium">{bill.patients?.first_name} {bill.patients?.last_name}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground">
+                                                    {format(new Date(bill.created_at), 'MMM d, yyyy')}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">
+                                                        {bill.payer_type === 'Insurance' ? (
+                                                            <><Building2 className="w-3 h-3 mr-1" />Insurance</>
+                                                        ) : (
+                                                            <><User className="w-3 h-3 mr-1" />Patient</>
+                                                        )}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="font-semibold">
+                                                    KES {(bill.total || 0).toLocaleString()}
+                                                </TableCell>
+                                                <TableCell>
+                                                    KES {(bill.balance || 0).toLocaleString()}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {getStatusBadge(bill.status)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {bill.payer_type === 'Insurance' && !bill.insurance_claim_id && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handlePrepareClaimClick(bill)}
+                                                            >
+                                                                <FileText className="w-4 h-4 mr-1" />
+                                                                Prepare Claim
+                                                            </Button>
+                                                        )}
+                                                        {bill.insurance_claim_id && (
+                                                            <Badge variant="outline" className="text-success">
+                                                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                                Claim Created
+                                                            </Badge>
+                                                        )}
+                                                        <Button variant="ghost" size="icon">
+                                                            <Download className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </TabsContent>
 
                     {/* Claims Tab */}
@@ -781,7 +801,7 @@ export default function BillingPage() {
                     </TabsContent>
                 </Tabs>
             </div>
-            
+
             {/* Prepare Claim Dialog */}
             <Dialog open={showClaimDialog} onOpenChange={setShowClaimDialog}>
                 <DialogContent className="max-w-lg">
@@ -794,7 +814,7 @@ export default function BillingPage() {
                             Link a clinical note to include ICD-10 diagnosis codes in the claim.
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     <div className="space-y-4 py-4">
                         {/* Clinical Notes Selection */}
                         <div className="space-y-3">
@@ -802,7 +822,7 @@ export default function BillingPage() {
                                 <Stethoscope className="w-4 h-4" />
                                 Link Clinical Note (Optional but Recommended)
                             </Label>
-                            
+
                             {loadingNotes ? (
                                 <div className="flex items-center justify-center py-8">
                                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -824,8 +844,8 @@ export default function BillingPage() {
                                                 </Label>
                                             </div>
                                             {patientNotes.map((note) => (
-                                                <div 
-                                                    key={note.id} 
+                                                <div
+                                                    key={note.id}
                                                     className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
                                                 >
                                                     <RadioGroupItem value={note.id} id={note.id} />
@@ -860,16 +880,16 @@ export default function BillingPage() {
                                 </RadioGroup>
                             )}
                         </div>
-                        
+
                         {/* Info */}
                         <div className="p-3 bg-info/5 border border-info/20 rounded-lg">
                             <p className="text-sm text-muted-foreground">
-                                <strong>Tip:</strong> Linking a clinical note will automatically include ICD-10 diagnosis codes 
+                                <strong>Tip:</strong> Linking a clinical note will automatically include ICD-10 diagnosis codes
                                 and clinical summary in the claim pack, making insurance submission faster.
                             </p>
                         </div>
                     </div>
-                    
+
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowClaimDialog(false)}>Cancel</Button>
                         <Button onClick={handleCreateClaim} disabled={creatingClaim}>

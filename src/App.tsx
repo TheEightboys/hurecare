@@ -30,6 +30,12 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const InsuranceSubmissionsPage = lazy(() => import("./pages/InsuranceSubmissionsPage"));
 const InsuranceSubmitPublic = lazy(() => import("./pages/InsuranceSubmitPublic"));
 const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
+const PharmacyPage = lazy(() => import("./pages/PharmacyPage"));
+const LabInvestigationPage = lazy(() => import("./pages/LabInvestigationPage"));
+const ImagingInvestigationPage = lazy(() => import("./pages/ImagingInvestigationPage"));
+const InvestigationListPage = lazy(() => import("./pages/InvestigationListPage"));
+const ProviderStatsPage = lazy(() => import("./pages/ProviderStatsPage"));
+const TeamStatsPage = lazy(() => import("./pages/TeamStatsPage"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -123,9 +129,21 @@ const App = () => (
               <Route path="/claims" element={<ProtectedRoute><ClaimsPage /></ProtectedRoute>} />
               <Route path="/insurance-submissions" element={<ProtectedRoute><InsuranceSubmissionsPage /></ProtectedRoute>} />
 
+              {/* Pharmacy & Store */}
+              <Route path="/pharmacy" element={<ProtectedRoute><PharmacyPage /></ProtectedRoute>} />
+
+              {/* Investigation */}
+              <Route path="/investigation" element={<ProtectedRoute><InvestigationListPage /></ProtectedRoute>} />
+              <Route path="/investigation/lab" element={<ProtectedRoute><LabInvestigationPage /></ProtectedRoute>} />
+              <Route path="/investigation/imaging" element={<ProtectedRoute><ImagingInvestigationPage /></ProtectedRoute>} />
+
+              {/* Team Performance */}
+              <Route path="/team-stats" element={<ProtectedRoute><TeamStatsPage /></ProtectedRoute>} />
+
               {/* Admin Reports */}
               <Route path="/admin/incomplete-notes" element={<ProtectedRoute><AdminNotesReportPage /></ProtectedRoute>} />
               <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
+              <Route path="/admin/provider-stats" element={<ProtectedRoute><ProviderStatsPage /></ProtectedRoute>} />
 
               {/* Settings */}
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

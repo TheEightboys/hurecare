@@ -4,7 +4,7 @@ import { gsap } from 'gsap';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AppointmentCard } from '@/components/ui/appointment-card';
 import { PatientSearch } from '@/components/appointments/PatientSearch';
@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAppointments, usePatients } from '@/hooks/useSupabase';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import {
     Plus,
     Search,
@@ -38,9 +39,12 @@ import {
     Filter,
     Clock,
     Users,
-    CheckCircle2
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
+    UserPlus,
 } from 'lucide-react';
-import { format, addDays, isToday, isTomorrow, startOfDay } from 'date-fns';
+import { format, addDays, subDays, isToday, isTomorrow, startOfDay } from 'date-fns';
 
 export default function AppointmentsPage() {
     const navigate = useNavigate();
@@ -50,8 +54,10 @@ export default function AppointmentsPage() {
 
     const [appointments, setAppointments] = useState<any[]>([]);
     const [patients, setPatients] = useState<any[]>([]);
+    const [providers, setProviders] = useState<any[]>([]);
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+    const [viewMode, setViewMode] = useState<'schedule' | 'list'>('schedule');
+    const [doctorFilter, setDoctorFilter] = useState<'on-duty' | 'all'>('on-duty');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [showNewDialog, setShowNewDialog] = useState(false);
@@ -69,6 +75,7 @@ export default function AppointmentsPage() {
 
     useEffect(() => {
         loadData();
+        loadProviders();
     }, []);
 
     useEffect(() => {
@@ -96,6 +103,19 @@ export default function AppointmentsPage() {
 
         return () => ctx.revert();
     }, [appointments]);
+
+    const loadProviders = async () => {
+        try {
+            const { data } = await supabase
+                .from('profiles')
+                .select('id, full_name, role, specialty')
+                .in('role', ['provider', 'admin', 'super_admin'])
+                .eq('account_status', 'approved');
+            setProviders(data || []);
+        } catch (err) {
+            console.error('Failed to load providers:', err);
+        }
+    };
 
     const loadData = async () => {
         const patientsData = await getPatients();
@@ -201,21 +221,31 @@ export default function AppointmentsPage() {
         completed: appointments.filter(a => a.status === 'COMPLETED').length,
     };
 
+    // Time slots for schedule view
+    const timeSlots = Array.from({ length: 24 }, (_, i) => {
+        const hour = i.toString().padStart(2, '0');
+        return `${hour}:00`;
+    });
+
+    // Get appointments for a specific provider
+    const getProviderAppointments = (providerId: string) => {
+        return appointments.filter(apt => apt.provider_id === providerId);
+    };
+
     return (
         <MainLayout>
             <div className="space-y-6">
                 {/* Header */}
                 <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-display font-bold">Appointments</h1>
-                        <p className="text-muted-foreground">{getDateLabel(selectedDate)}</p>
+                        <h1 className="text-2xl font-display font-bold">Schedule / Calendar</h1>
                     </div>
 
                     <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
                         <DialogTrigger asChild>
                             <Button className="gap-2">
-                                <Plus className="w-4 h-4" />
-                                New Appointment
+                                <UserPlus className="w-4 h-4" />
+                                Add Patient
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -353,161 +383,155 @@ export default function AppointmentsPage() {
                     </Dialog>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="glass-card rounded-xl p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <CalendarIcon className="w-5 h-5 text-primary" />
+                {/* Schedule View Card */}
+                <Card className="border-0 shadow-sm">
+                    <CardContent className="p-0">
+                        {/* Date Navigation */}
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <div className="flex items-center gap-4">
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => setSelectedDate(subDays(selectedDate, 1))}
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </Button>
+                                <span className="font-semibold text-lg">
+                                    {format(selectedDate, 'EEE, MMM d, yyyy')}
+                                </span>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </Button>
                             </div>
-                            <div>
-                                <p className="text-2xl font-bold">{stats.total}</p>
-                                <p className="text-xs text-muted-foreground">Total</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="glass-card rounded-xl p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-                                <Clock className="w-5 h-5 text-info" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{stats.scheduled}</p>
-                                <p className="text-xs text-muted-foreground">Scheduled</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="glass-card rounded-xl p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                                <Users className="w-5 h-5 text-warning" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{stats.inSession}</p>
-                                <p className="text-xs text-muted-foreground">In Session</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="glass-card rounded-xl p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-                                <CalendarIcon className="w-5 h-5 text-success" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{stats.completed}</p>
-                                <p className="text-xs text-muted-foreground">Completed</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Filters & View Toggle */}
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search patients..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
-
-                    <div className="flex gap-2">
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[140px]">
-                                <Filter className="w-4 h-4 mr-2" />
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Status</SelectItem>
-                                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-                                <SelectItem value="IN_SESSION">In Session</SelectItem>
-                                <SelectItem value="COMPLETED">Completed</SelectItem>
-                                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <div className="flex border rounded-lg overflow-hidden">
-                            <Button
-                                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                                size="icon"
-                                onClick={() => setViewMode('list')}
-                            >
-                                <List className="w-4 h-4" />
-                            </Button>
-                            <Button
-                                variant={viewMode === 'calendar' ? 'secondary' : 'ghost'}
-                                size="icon"
-                                onClick={() => setViewMode('calendar')}
-                            >
-                                <Grid className="w-4 h-4" />
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Date Navigation */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                    {[-1, 0, 1, 2, 3, 4, 5].map((offset) => {
-                        const date = addDays(new Date(), offset);
-                        const isSelected = format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
-                        return (
-                            <Button
-                                key={offset}
-                                variant={isSelected ? 'default' : 'outline'}
-                                className="flex-shrink-0"
-                                onClick={() => setSelectedDate(date)}
-                            >
-                                <div className="text-center">
-                                    <div className="text-xs">{format(date, 'EEE')}</div>
-                                    <div className="text-lg font-bold">{format(date, 'd')}</div>
+                            
+                            <div className="flex items-center gap-4">
+                                {/* Doctor Filter Toggle */}
+                                <div className="flex bg-muted rounded-lg p-1">
+                                    <Button
+                                        variant={doctorFilter === 'on-duty' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        className="h-8 px-4"
+                                        onClick={() => setDoctorFilter('on-duty')}
+                                    >
+                                        On Duty Doctor
+                                    </Button>
+                                    <Button
+                                        variant={doctorFilter === 'all' ? 'default' : 'ghost'}
+                                        size="sm"
+                                        className="h-8 px-4"
+                                        onClick={() => setDoctorFilter('all')}
+                                    >
+                                        All Doctors
+                                    </Button>
                                 </div>
-                            </Button>
-                        );
-                    })}
-                </div>
-
-                {/* Appointments List */}
-                <div className="space-y-3">
-                    {loading ? (
-                        <div className="flex items-center justify-center py-12">
-                            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                        </div>
-                    ) : filteredAppointments.length === 0 ? (
-                        <div className="glass-card rounded-xl p-12 text-center">
-                            <CalendarIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold mb-2">No appointments</h3>
-                            <p className="text-muted-foreground mb-4">
-                                {searchTerm || statusFilter !== 'all'
-                                    ? 'No appointments match your filters'
-                                    : `No appointments scheduled for ${getDateLabel(selectedDate)}`}
-                            </p>
-                            <Button onClick={() => setShowNewDialog(true)}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Schedule Appointment
-                            </Button>
-                        </div>
-                    ) : (
-                        filteredAppointments.map((apt, index) => (
-                            <div key={apt.id} className="appointment-item">
-                                <AppointmentCard
-                                    id={apt.id}
-                                    patientName={`${apt.patients?.first_name || ''} ${apt.patients?.last_name || ''}`}
-                                    time={apt.appointment_time?.substring(0, 5) || ''}
-                                    duration={apt.duration_minutes || 30}
-                                    status={apt.status || 'SCHEDULED'}
-                                    bookingType={apt.booking_type}
-                                    confirmationIndicator={apt.confirmation_indicator || 'NC'}
-                                    reason={apt.reason_for_visit}
-                                    delay={index * 0.05}
-                                    onStatusChange={handleStatusChange}
-                                    onConfirmationChange={handleConfirmationChange}
-                                />
+                                
+                                {/* Provider Dropdown */}
+                                <Select defaultValue="all">
+                                    <SelectTrigger className="w-[140px]">
+                                        <SelectValue placeholder="Doctors" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Doctors</SelectItem>
+                                        {providers.map(provider => (
+                                            <SelectItem key={provider.id} value={provider.id}>
+                                                {provider.full_name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        ))
-                    )}
-                </div>
+                        </div>
+
+                        {/* Schedule Table */}
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                                <thead>
+                                    <tr className="bg-muted/50">
+                                        <th className="text-left p-3 font-semibold text-sm border-r min-w-[80px]">Time</th>
+                                        {providers.slice(0, 5).map(provider => (
+                                            <th key={provider.id} className="text-left p-3 font-semibold text-sm border-r min-w-[150px]">
+                                                {provider.full_name || 'Unknown'}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {timeSlots.slice(8, 18).map((time, index) => (
+                                        <tr key={time} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                                            <td className="p-3 text-sm text-muted-foreground border-r font-medium">
+                                                {time}
+                                            </td>
+                                            {providers.slice(0, 5).map(provider => {
+                                                const providerAppts = getProviderAppointments(provider.id);
+                                                const aptAtTime = providerAppts.find(apt => 
+                                                    apt.appointment_time?.substring(0, 5) === time
+                                                );
+                                                return (
+                                                    <td key={provider.id} className="p-2 border-r min-h-[60px]">
+                                                        {aptAtTime ? (
+                                                            <div 
+                                                                className="p-2 rounded-lg bg-primary/10 border border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors"
+                                                                onClick={() => navigate(`/appointments/${aptAtTime.id}`)}
+                                                            >
+                                                                <p className="font-medium text-sm truncate">
+                                                                    {aptAtTime.patients?.first_name} {aptAtTime.patients?.last_name}
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground truncate">
+                                                                    {aptAtTime.reason_for_visit || 'Consultation'}
+                                                                </p>
+                                                            </div>
+                                                        ) : null}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        {/* Empty state if no providers */}
+                        {providers.length === 0 && (
+                            <div className="p-12 text-center">
+                                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold mb-2">No Providers Found</h3>
+                                <p className="text-muted-foreground">No doctors or providers have been set up yet.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* List View (alternative) */}
+                {viewMode === 'list' && appointments.length > 0 && (
+                    <Card className="border-0 shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Today's Appointments ({appointments.length})</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {filteredAppointments.map((apt, index) => (
+                                <div key={apt.id} className="appointment-item">
+                                    <AppointmentCard
+                                        id={apt.id}
+                                        patientName={`${apt.patients?.first_name || ''} ${apt.patients?.last_name || ''}`}
+                                        time={apt.appointment_time?.substring(0, 5) || ''}
+                                        duration={apt.duration_minutes || 30}
+                                        status={apt.status || 'SCHEDULED'}
+                                        bookingType={apt.booking_type}
+                                        confirmationIndicator={apt.confirmation_indicator || 'NC'}
+                                        reason={apt.reason_for_visit}
+                                        delay={index * 0.05}
+                                        onStatusChange={handleStatusChange}
+                                        onConfirmationChange={handleConfirmationChange}
+                                    />
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </MainLayout>
     );
